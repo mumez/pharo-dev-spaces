@@ -124,12 +124,12 @@
 **Description:** projects.json の各リポジトリについて `git fetch` → `origin/develop` の SHA を取得し、`git archive <sha> <srcDir>` で一時ディレクトリに展開する。展開先とリポジトリごとの SHA を返す。
 
 **Acceptance criteria:**
-- [ ] 作業ツリーやカレントブランチを変更しない
-- [ ] `origin/develop` が無い場合、fetch に失敗した場合は、リポジトリ名付きのエラーにする
-- [ ] 戻り値に `{repository, sha, extractedSrcPath}` を含む
+- [x] 作業ツリーやカレントブランチを変更しない
+- [x] `origin/develop` が無い場合、fetch に失敗した場合は、リポジトリ名付きのエラーにする
+- [x] 戻り値に `{repository, sha, extractedSrcPath}` を含む
 
 **Verification:**
-- [ ] `uv run pytest`（tmp に bare リポジトリと clone を作り、develop を push したものを取得するテスト）
+- [x] `uv run pytest`（tmp に bare リポジトリと clone を作り、develop を push したものを取得するテスト）
 
 **Dependencies:** Task 1（Task 5 の projects.json の読み込みを共有）
 

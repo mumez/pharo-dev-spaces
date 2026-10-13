@@ -49,7 +49,7 @@ T5 と T6 は Pharo に依存しないので、T2〜T4 と並行して進めら�
 ### Phase 2: Claude 接続とスナップショットの部品
 - [x] Task 4: `slot claude`（mcp.json の生成とマージ）
 - [x] Task 5: `add-project`（Baseline の解析 → projects.json の雛形）
-- [ ] Task 6: ソース取得（fetch → SHA → git archive）
+- [x] Task 6: ソース取得（fetch → SHA → git archive）
 
 ### Checkpoint B
 - [ ] `pds slot claude 2` で起動した Claude Code から、slot2 のイメージだけを操作できる
