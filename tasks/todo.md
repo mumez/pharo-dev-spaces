@@ -209,8 +209,8 @@
 ---
 
 ### Checkpoint C（完了）
-- [ ] `uv run pytest` と `uv run pytest -m pharo` が通る
-- [ ] Historia で full → incremental → `slot reset 1` → `slot up 1` が通る
-- [ ] Key Assumptions（ロード順、メソッド削除、所要時間）の結果を one-pager に反映する
-- [ ] README-ja.md を実装に合わせて更新する
+- [x] `uv run pytest` と `uv run pytest -m pharo` が通る
+- [x] Historia で full → incremental → `slot reset 1` → `slot up 1` が通る
+- [x] Key Assumptions（ロード順、メソッド削除、所要時間）の結果を one-pager に反映する
+- [x] README-ja.md を実装に合わせて更新する
 - [ ] 人間によるレビュー

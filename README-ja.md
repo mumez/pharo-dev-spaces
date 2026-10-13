@@ -2,6 +2,29 @@
 
 pharo の　AIコーディングエージェント用の開発用イメージ管理ツール群
 
+## 使い方
+
+設計は `docs/ideas/pharo-dev-spaces.md`、実装計画は `tasks/plan.md` を参照。
+
+```bash
+uv sync
+uv run pds setup-plain --version 140          # plain-pharo/ に Pharo 14 の image + VM を取得
+uv run pds prepare-dev-base                   # dev-base/ = plain + SIS + AgenticBrowser
+uv run pds add-project ~/git/Historia --write # BaselineOf から projects.json にロード順を登録
+
+uv run pds build-snapshot --full              # 初回・作り直し: dev-base + Metacello(tonel://) → テスト → snapshots/current
+uv run pds build-snapshot                     # 毎日: current + TonelReader（Baseline が変わっていれば --full を案内）
+
+uv run pds slot reset 2                       # snapshots/current（無ければ dev-base）から slots/slot2 を作り直す
+uv run pds slot up 2                          # PHARO_SIS_PORT=8088 で headless 起動
+uv run pds slot claude 2                      # slot2 に接続した MCP 設定で claude を起動（追加の引数は -- の後に）
+uv run pds slot down 2
+```
+
+- スロットは slot1〜3 で、ポートは 8087〜8089（8086 は単独利用のために空けておく）
+- smalltalk-dev 以外の MCP サーバーは `mcp_others.json`（`{"mcpServers": {...}}`）に書くと、スロットの mcp.json にマージされる
+- テスト: `uv run pytest`（ユニット）/ `uv run pytest -m pharo`（実際の Pharo を起動。`plain-pharo/` と `dev-base/` が必要）
+
 ## 課題
 
 AIコーディングエージェントを使い、Pharo Smalltalk用の開発を行うためには、Pharo imageの管理が不可欠だが、適切なツールが存在しない。
