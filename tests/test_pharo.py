@@ -3,20 +3,20 @@ import subprocess
 
 import pytest
 
-from pds.pharo import PharoRunError, pharo_command, run_pharo
+from pds.pharo import PharoRunError, run_pharo, script_command
 
 
 def test_pharo_command_runs_script_headless_and_quits(layout, tmp_path):
     image = tmp_path / "x" / "Pharo.image"
     script = tmp_path / "s.st"
 
-    command = pharo_command(layout, image, script)
+    command = script_command(layout, image, script)
 
     assert command == [str(layout.plain_dir / "pharo"), str(image), "st", "--quit", str(script)]
 
 
 def test_pharo_command_saves_when_requested(layout, tmp_path):
-    command = pharo_command(layout, tmp_path / "Pharo.image", tmp_path / "s.st", save=True)
+    command = script_command(layout, tmp_path / "Pharo.image", tmp_path / "s.st", save=True)
 
     assert command[2:5] == ["st", "--save", "--quit"]
 

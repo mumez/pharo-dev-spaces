@@ -21,3 +21,13 @@ def pharo_layout(tmp_path):
     tmp_layout = Layout(tmp_path)
     tmp_layout.plain_dir.symlink_to(real_plain_dir)
     return tmp_layout
+
+
+@pytest.fixture
+def dev_base_layout(pharo_layout):
+    """pharo_layout plus the repository's real dev-base (with SIS)."""
+    real_dev_base_dir = REPO_ROOT / "dev-base"
+    if not (real_dev_base_dir / "Pharo.image").exists():
+        pytest.skip("dev-base is not prepared; run `pds prepare-dev-base` first")
+    pharo_layout.dev_base_dir.symlink_to(real_dev_base_dir)
+    return pharo_layout

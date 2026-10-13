@@ -54,13 +54,13 @@
 **Description:** `slot reset N` で `snapshots/current`（無ければ `dev-base`）を `slots/slotN/` に作り直す。`slot up N` は `PHARO_SIS_PORT=8086+N` でバックグラウンド起動して pid を保存し、`slot down N` で停止する。
 
 **Acceptance criteria:**
-- [ ] N は 1〜3 のみ受け付け、ポートは 8086+N
-- [ ] 起動中のスロットは reset を拒否する（先に down が必要）
-- [ ] slot1〜3 を同時に起動でき、互いに独立している（片方で定義したクラスが、もう片方に存在しない）
+- [x] N は 1〜3 のみ受け付け、ポートは 8086+N
+- [x] 起動中のスロットは reset を拒否する（先に down が必要）
+- [x] slot1〜3 を同時に起動でき、互いに独立している（片方で定義したクラスが、もう片方に存在しない）
 
 **Verification:**
-- [ ] `uv run pytest`（ポート計算、派生元の選択、pid の扱いのユニットテスト）
-- [ ] `uv run pytest -m pharo`（2スロットを同時に起動し、SIS の eval で独立性を確認。`get-method-source` でソースが読めること＝sources リンクの前提も確認）
+- [x] `uv run pytest`（ポート計算、派生元の選択、pid の扱いのユニットテスト）
+- [x] `uv run pytest -m pharo`（2スロットを同時に起動し、SIS の eval で独立性を確認。`get-method-source` でソースが読めること＝sources リンクの前提も確認）
 
 **Dependencies:** Task 2
 
@@ -71,9 +71,9 @@
 ---
 
 ### Checkpoint A
-- [ ] `uv run pytest` と `uv run pytest -m pharo` が通る
-- [ ] Key Assumptions の「sources のシンボリックリンク」と「`#port` が永続化されない」を one-pager でチェック済みにする
-- [ ] 人間によるレビュー
+- [x] `uv run pytest` と `uv run pytest -m pharo` が通る
+- [x] Key Assumptions の「sources のシンボリックリンク」と「`#port` が永続化されない」を one-pager でチェック済みにする
+- [x] 人間によるレビュー
 
 ---
 

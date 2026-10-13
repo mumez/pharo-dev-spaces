@@ -76,8 +76,8 @@ pharo-dev-spaces/
 - [x] **`--full` で Metacello の `tonel://` / `gitlocal://` を使ってローカルのソースからロードできる。** Historia で確認済み（2026-10-13）。外部依存（Stick、RediStick）は Iceberg 経由でロードされ `pharo-local/iceberg` にキャッシュが残るため、full ビルドの後始末で削除する。削除しても、Metacello の GUI に「local repository missing」と表示されるだけで無害
 - [ ] **パッケージを差分で再ロードしたとき、パッケージ内で削除されたメソッドがイメージから消える。** MC の `updatePackage:` の挙動として確認する（クラスの削除やリネームは `--full` で対処する前提）
 - [ ] **incremental を続けても、`--full` と同じテスト結果になる。** 定期的に `--full` を実行して照合する
-- [ ] **コピーしたイメージを別ディレクトリから起動しても、sources のシンボリックリンクで正常に動く。** `slot up` 後にメソッドのソースを表示して確認する
-- [ ] **SIS のポートが永続化された設定で上書きされない。** `apply_settings` などで `#port` がイメージに保存されると環境変数より優先されるため、dev-base / current で `#port` が未設定であることを確認する
+- [x] **コピーしたイメージを別ディレクトリから起動しても、sources のシンボリックリンクで正常に動く。** 2026-10-13 確認済み（`tests/test_slot.py` の統合テスト）
+- [x] **SIS のポートが永続化された設定で上書きされない。** 2026-10-13 確認済み（Metacello でロードしたイメージを保存した後でも、`PHARO_SIS_PORT` が効く）。`apply_settings` で `#port` を保存しないよう注意する
 - [ ] **全パッケージを毎回再ロードしても許容時間内に収まる。** 実測し、遅ければ前回の SHA との `git diff` で変更があったパッケージだけに絞る
 
 ## MVP Scope

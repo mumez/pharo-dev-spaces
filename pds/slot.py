@@ -1,0 +1,111 @@
+"""Fixed, disposable slots (slots/slot1..3) derived from the current snapshot."""
+
+import os
+import signal
+import subprocess
+import time
+
+from pds.image_dir import copy_image, image_path, staged_replacement
+from pds.pharo import keep_alive_command, pharo_environment
+
+SLOT_NUMBERS = (1, 2, 3)
+SLOT_BASE_PORT = 8086  # stays free for a standalone image; slot N listens on 8086 + N
+STOP_TIMEOUT_SECONDS = 10
+
+
+def slot_port(slot_number):
+    if slot_number not in SLOT_NUMBERS:
+        raise ValueError(f"slot number must be one of {SLOT_NUMBERS}, got {slot_number}")
+    return SLOT_BASE_PORT + slot_number
+
+
+def slot_dir(layout, slot_number):
+    slot_port(slot_number)
+    return layout.slots_dir / f"slot{slot_number}"
+
+
+def pid_file(layout, slot_number):
+    return slot_dir(layout, slot_number) / "pharo.pid"
+
+
+def slot_origin_dir(layout):
+    for origin_dir in (layout.current_snapshot_dir, layout.dev_base_dir):
+        if image_path(origin_dir).exists():
+            return origin_dir
+    raise FileNotFoundError("neither snapshots/current nor dev-base exists; run `pds prepare-dev-base` first")
+
+
+def slot_pid(layout, slot_number):
+    """Pid of the running slot, or None (a stale pid file is removed)."""
+    slot_pid_file = pid_file(layout, slot_number)
+    if not slot_pid_file.exists():
+        return None
+    pid = int(slot_pid_file.read_text())
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        slot_pid_file.unlink()
+        return None
+    return pid
+
+
+def is_slot_running(layout, slot_number):
+    return slot_pid(layout, slot_number) is not None
+
+
+def ensure_slot_stopped(layout, slot_number):
+    if is_slot_running(layout, slot_number):
+        raise RuntimeError(f"slot{slot_number} is running; run `pds slot down {slot_number}` first")
+
+
+def reset_slot(layout, slot_number):
+    ensure_slot_stopped(layout, slot_number)
+    with staged_replacement(slot_dir(layout, slot_number), force=True) as staging_dir:
+        copy_image(layout, slot_origin_dir(layout), staging_dir)
+
+
+def start_slot(layout, slot_number):
+    ensure_slot_stopped(layout, slot_number)
+    slot_image = image_path(slot_dir(layout, slot_number))
+    if not slot_image.exists():
+        raise FileNotFoundError(f"{slot_image} does not exist; run `pds slot reset {slot_number}` first")
+    with open(slot_dir(layout, slot_number) / "pharo.log", "ab") as log:
+        process = subprocess.Popen(
+            keep_alive_command(layout, slot_image),
+            env=pharo_environment(slot_port(slot_number)),
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    pid_file(layout, slot_number).write_text(str(process.pid))
+
+
+def stop_slot(layout, slot_number):
+    """Terminate the slot's process group (the pharo launcher script and its VM child)."""
+    pid = slot_pid(layout, slot_number)
+    if pid is None:
+        return
+    os.killpg(pid, signal.SIGTERM)
+    deadline = time.monotonic() + STOP_TIMEOUT_SECONDS
+    while is_process_group_alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.2)
+    if is_process_group_alive(pid):
+        os.killpg(pid, signal.SIGKILL)
+    pid_file(layout, slot_number).unlink(missing_ok=True)
+
+
+def is_process_group_alive(process_group_id):
+    try:
+        os.killpg(process_group_id, 0)
+    except ProcessLookupError:
+        return False
+    reap_if_child(process_group_id)
+    return True
+
+
+def reap_if_child(pid):
+    try:
+        os.waitpid(pid, os.WNOHANG)
+    except ChildProcessError:
+        pass

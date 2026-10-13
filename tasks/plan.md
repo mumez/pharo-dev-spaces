@@ -37,13 +37,13 @@ T5 と T6 は Pharo に依存しないので、T2〜T4 と並行して進めら�
 
 ### Phase 1: 土台とスロット（最もリスクの高い起動まわりから）
 - [x] Task 1: CLI の骨格、`setup-plain`、`run_pharo`
-- [ ] Task 2: `prepare-dev-base`
-- [ ] Task 3: `slot reset / up / down`
+- [ ] Task 2:（AgenticBrowser のロードが BLOCKED。SIS のみで暫定運用） `prepare-dev-base`
+- [x] Task 3: `slot reset / up / down`
 
 ### Checkpoint A
-- [ ] ユニットテストが通る
-- [ ] slot1〜3 を同時に起動し、それぞれのポートの SIS が別イメージとして応答する
-- [ ] 前提「sources のシンボリックリンク」と「`#port` が永続化されない」を確認済み
+- [x] ユニットテストが通る
+- [x] slot1〜3 を同時に起動し、それぞれのポートの SIS が別イメージとして応答する
+- [x] 前提「sources のシンボリックリンク」と「`#port` が永続化されない」を確認済み
 - [ ] 人間によるレビュー
 
 ### Phase 2: Claude 接続とスナップショットの部品
