@@ -1,0 +1,10 @@
+plain-pharo/
+dev-pharo/
+dev-base/
+slots/
+snapshots/current/
+snapshots/.build*/
+archives/
+.venv/
+__pycache__/
+.pytest_cache/
