@@ -3,6 +3,7 @@ import sys
 
 from pds.dev_base import prepare_dev_base
 from pds.layout import Layout
+from pds.mcp_config import launch_claude
 from pds.slot import SLOT_NUMBERS, reset_slot, start_slot, stop_slot
 from pds.setup_plain import setup_plain
 
@@ -31,7 +32,15 @@ def build_parser():
         action_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
         action_parser.set_defaults(handler=lambda layout, args, handler=handler: handler(layout, args.slot_number))
 
+    claude_parser = slot_actions.add_parser("claude", help="run Claude Code with MCP pointed at the slot")
+    claude_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
+    claude_parser.add_argument("claude_arguments", nargs=argparse.REMAINDER, help="passed to claude (after --)")
+    claude_parser.set_defaults(
+        handler=lambda layout, args: launch_claude(layout, args.slot_number, args.claude_arguments)
+    )
+
     return parser
+
 
 
 def main(argv=None):

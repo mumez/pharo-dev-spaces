@@ -82,13 +82,13 @@
 **Description:** smalltalk-interop（`SIS_PORT=8086+N`）と smalltalk-validator の定義に `mcp_others.json`（任意）をマージして `slots/slotN/mcp.json` を生成し、`claude --strict-mcp-config --mcp-config <file>` を exec する。
 
 **Acceptance criteria:**
-- [ ] `mcp_others.json` が無くても動く。同名のサーバーがある場合は smalltalk-dev 側を優先する
-- [ ] スロットが起動していなければ警告する（起動はしない）
-- [ ] 追加の引数は claude にそのまま渡す（`pds slot claude 2 -- --model opus` など）
+- [x] `mcp_others.json` が無くても動く。同名のサーバーがある場合は smalltalk-dev 側を優先する
+- [x] スロットが起動していなければ警告する（起動はしない）
+- [x] 追加の引数は claude にそのまま渡す（`pds slot claude 2 -- --model opus` など）
 
 **Verification:**
-- [ ] `uv run pytest`（マージ結果と exec の引数のユニットテスト）
-- [ ] 手動: `pds slot claude 2` で起動したセッションで eval `Smalltalk os environment at: 'PHARO_SIS_PORT'` が `8088` を返す
+- [x] `uv run pytest`（マージ結果と exec の引数のユニットテスト）
+- [x] 手動: `pds slot claude 2` で起動したセッションで eval `Smalltalk os environment at: 'PHARO_SIS_PORT'` が `8088` を返す
 
 **Dependencies:** Task 3
 
