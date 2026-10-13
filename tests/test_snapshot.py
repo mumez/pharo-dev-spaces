@@ -109,7 +109,8 @@ def test_failing_tests_keep_previous_snapshot(build_layout, monkeypatch):
 
 def make_current_snapshot(layout, manifest_date="2026-10-12"):
     make_image_dir(layout.current_snapshot_dir)
-    layout.snapshots_dir.joinpath(f"{manifest_date}.json").write_text("{}")
+    unchanged_repositories = [{"repository": PROJECT["repository"], "sha": "abc123"}]
+    layout.snapshots_dir.joinpath(f"{manifest_date}.json").write_text(json.dumps({"repositories": unchanged_repositories}))
 
 
 def test_incremental_build_loads_listed_packages_with_tonel_reader(build_layout, monkeypatch):
@@ -190,3 +191,36 @@ def test_incremental_reload_removes_methods_deleted_from_the_package(pharo_layou
 
     write_probe_package(src_dir, ["kept"])
     assert load_and_list_selectors() == ["kept"]
+
+
+def write_previous_manifest(layout, repositories):
+    layout.snapshots_dir.mkdir(parents=True, exist_ok=True)
+    make_image_dir(layout.current_snapshot_dir)
+    (layout.snapshots_dir / "2026-10-12.json").write_text(json.dumps({"repositories": repositories}))
+
+
+def test_incremental_build_stops_when_a_baseline_changed(build_layout, monkeypatch):
+    write_previous_manifest(build_layout, [{"repository": "/repos/Historia", "sha": "old"}])
+    monkeypatch.setattr(snapshot, "baseline_changed", lambda repository, old, new, src_dir: True)
+    monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
+
+    with pytest.raises(SnapshotBuildError, match=r"--full.*\n.*/repos/Historia"):
+        build_snapshot(build_layout, build_date=BUILD_DATE)
+
+
+def test_incremental_build_stops_for_repository_missing_from_previous_snapshot(build_layout, monkeypatch):
+    write_previous_manifest(build_layout, [])
+    monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
+
+    with pytest.raises(SnapshotBuildError, match="/repos/Historia"):
+        build_snapshot(build_layout, build_date=BUILD_DATE)
+
+
+def test_incremental_build_proceeds_when_baselines_are_unchanged(build_layout, monkeypatch):
+    write_previous_manifest(build_layout, [{"repository": "/repos/Historia", "sha": "old"}])
+    monkeypatch.setattr(snapshot, "baseline_changed", lambda repository, old, new, src_dir: False)
+    monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
+
+    build_snapshot(build_layout, build_date=BUILD_DATE)
+
+    assert json.loads((build_layout.snapshots_dir / "2026-10-13.json").read_text())["mode"] == "incremental"

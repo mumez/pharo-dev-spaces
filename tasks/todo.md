@@ -194,11 +194,11 @@
 **Description:** 前回の manifest の SHA と今回の SHA の間で `git diff --name-only` を取り、`BaselineOf*` 配下に変更があれば `--full` を案内して中断する。
 
 **Acceptance criteria:**
-- [ ] BaselineOf が変化していれば、ロード前に中断し、変化したリポジトリ名を表示する
-- [ ] manifest に無いリポジトリ（新規追加）も `--full` を案内する
+- [x] BaselineOf が変化していれば、ロード前に中断し、変化したリポジトリ名を表示する
+- [x] manifest に無いリポジトリ（新規追加）も `--full` を案内する
 
 **Verification:**
-- [ ] `uv run pytest`（tmp の git リポジトリで Baseline あり / なしの変更を作るテスト）
+- [x] `uv run pytest`（tmp の git リポジトリで Baseline あり / なしの変更を作るテスト）
 
 **Dependencies:** Task 8
 

@@ -47,3 +47,10 @@ def fetch_project_sources(projects, extract_root):
         src_path = extract_src_dir(repository, sha, project["srcDir"], Path(extract_root) / Path(repository).name)
         fetched_sources.append(FetchedSource(project, sha, src_path))
     return fetched_sources
+
+
+def baseline_changed(repository, old_sha, new_sha, src_dir):
+    """Dependency or package-structure changes always show up as a change of the BaselineOf package."""
+    if old_sha == new_sha:
+        return False
+    return bool(git(repository, "diff", "--name-only", old_sha, new_sha, "--", f"{src_dir}/BaselineOf*").strip())

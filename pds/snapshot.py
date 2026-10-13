@@ -9,7 +9,7 @@ from datetime import date
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
 from pds.pharo import BUILD_SIS_PORT, run_pharo
 from pds.projects import read_projects
-from pds.sources import fetch_project_sources
+from pds.sources import baseline_changed, fetch_project_sources
 from pds.st_script import render_template_file
 
 BUILD_SCRIPT_FILE_NAME = "build_snapshot.st"
@@ -92,9 +92,30 @@ def archive_current_snapshot(layout, build_date):
             archive.add(path, arcname=path.name)
 
 
-def latest_manifest_name(layout):
+def latest_manifest_path(layout):
     manifests = sorted(layout.snapshots_dir.glob("*.json"))
-    return manifests[-1].stem if manifests else None
+    return manifests[-1] if manifests else None
+
+
+def ensure_incremental_build_is_possible(previous_manifest_path, fetched_sources):
+    """New repositories and BaselineOf changes (dependencies, package structure) need `--full`."""
+    previous_shas = {}
+    if previous_manifest_path:
+        previous_repositories = json.loads(previous_manifest_path.read_text()).get("repositories", [])
+        previous_shas = {each["repository"]: each["sha"] for each in previous_repositories}
+    needing_full_build = [
+        source.project["repository"]
+        for source in fetched_sources
+        if source.project["repository"] not in previous_shas
+        or baseline_changed(
+            source.project["repository"], previous_shas[source.project["repository"]], source.sha, source.project["srcDir"]
+        )
+    ]
+    if needing_full_build:
+        raise SnapshotBuildError(
+            "new repositories or BaselineOf changes since the last snapshot; run `pds build-snapshot --full`:\n  "
+            + "\n  ".join(needing_full_build)
+        )
 
 
 def build_snapshot(layout, full=False, build_date=None):
@@ -106,10 +127,13 @@ def build_snapshot(layout, full=False, build_date=None):
     else:
         if not image_path(layout.current_snapshot_dir).exists():
             raise SnapshotBuildError("snapshots/current does not exist; run `pds build-snapshot --full` first")
-        mode, base, origin_dir = "incremental", latest_manifest_name(layout), layout.current_snapshot_dir
-        load_script_for = incremental_load_script
+        previous_manifest_path = latest_manifest_path(layout)
+        mode, origin_dir, load_script_for = "incremental", layout.current_snapshot_dir, incremental_load_script
+        base = previous_manifest_path.stem if previous_manifest_path else None
     with tempfile.TemporaryDirectory(prefix="pds-sources-") as extract_root:
         fetched_sources = fetch_project_sources(projects, extract_root)
+        if not full:
+            ensure_incremental_build_is_possible(previous_manifest_path, fetched_sources)
         with staged_replacement(layout.current_snapshot_dir, force=True) as build_dir:
             copy_image(layout, origin_dir, build_dir)
             script = build_dir / BUILD_SCRIPT_FILE_NAME
