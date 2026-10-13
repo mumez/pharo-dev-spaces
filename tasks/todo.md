@@ -33,9 +33,9 @@
 **Description:** `plain-pharo/` の image と changes を `dev-base/` にコピーし（sources はシンボリックリンク）、SIS（`PharoSmalltalkInteropServer`、`github://mumez/PharoSmalltalkInteropServer:main/src`）と AgenticBrowser（`AgenticBrowser`、`github://mumez/pharo-agentic-browser:main/src`、group `'all'`）を Metacello でロードして save & quit する。プロジェクトの外部依存はここでは入れない（full ビルドの Baseline が解決する）。その後 `remove_iceberg_cache` で `pharo-local/iceberg` を削除する。
 
 **Acceptance criteria:**
-- [ ] `pds prepare-dev-base` で `dev-base/Pharo.image` ができ、`pharo-local/iceberg` は残らない
-- [ ] `PHARO_SIS_PORT=8099` で dev-base を起動すると SIS がそのポートで応答する（`#port` が永続化されていない）
-- [ ] ロードに失敗したら非ゼロで終了し、`dev-base/` は作りかけの状態で残らない
+- [ ] `pds prepare-dev-base` で `dev-base/Pharo.image` ができ、`pharo-local/iceberg` は残らない（**BLOCKED**: Pharo 14 で AgenticBrowser をロードすると、Ripple が要求する zinc v5 の `Zinc-HTTP` で止まる。`metacello install` ハンドラでも同じ。SIS のみは5秒でロードできる）
+- [x] `PHARO_SIS_PORT=8099` で dev-base を起動すると SIS がそのポートで応答する（`#port` が永続化されていない）。SIS のみの dev-base で確認済み
+- [x] ロードに失敗したら非ゼロで終了し、`dev-base/` は作りかけの状態で残らない
 
 **Verification:**
 - [ ] `uv run pytest`（コピーやシンボリックリンクの作成、iceberg の削除のユニットテスト）

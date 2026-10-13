@@ -1,6 +1,9 @@
 import os
 import subprocess
 
+# SIS starts in every image we launch; builds use their own port so they never clash with slots or 8086.
+BUILD_SIS_PORT = 8090
+
 
 class PharoRunError(RuntimeError):
     pass

@@ -8,3 +8,4 @@ archives/
 .venv/
 __pycache__/
 .pytest_cache/
+crash.dmp
