@@ -1,9 +1,12 @@
 import argparse
+import json
 import sys
 
+from pds.baseline import project_entry
 from pds.dev_base import prepare_dev_base
 from pds.layout import Layout
 from pds.mcp_config import launch_claude
+from pds.projects import add_project_entry
 from pds.slot import SLOT_NUMBERS, reset_slot, start_slot, stop_slot
 from pds.setup_plain import setup_plain
 
@@ -39,7 +42,20 @@ def build_parser():
         handler=lambda layout, args: launch_claude(layout, args.slot_number, args.claude_arguments)
     )
 
+    add_project_parser = commands.add_parser("add-project", help="print a projects.json entry derived from BaselineOf")
+    add_project_parser.add_argument("repository", help="path of the git repository")
+    add_project_parser.add_argument("--groups", default="default", help="comma-separated Metacello groups (default: default)")
+    add_project_parser.add_argument("--write", action="store_true", help="append the entry to projects.json")
+    add_project_parser.set_defaults(handler=add_project)
+
     return parser
+
+
+def add_project(layout, args):
+    entry = project_entry(args.repository, args.groups.split(","))
+    print(json.dumps(entry, indent=2))
+    if args.write:
+        add_project_entry(layout, entry)
 
 
 

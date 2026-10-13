@@ -100,16 +100,16 @@
 
 ## Task 5: `add-project`
 
-**Description:** リポジトリの `.project`（`srcDirectory`）と `BaselineOf*.class.st` の `baseline:` を解析し、`package:` / `requires:` をトポロジカルソートして、projects.json のエントリ（BaselineOf を先頭に置く）を出力する。`--write` を付けると projects.json に追記する。
+**Description:** （実装メモ: Historia の `optionBaselineMessagePack:` のように、パッケージが `default` グループ外にある場合に備えて、エントリに `groups` を持たせ、full / incremental で同じ対象をロードするようにした）リポジトリの `.project`（`srcDirectory`）と `BaselineOf*.class.st` の `baseline:` を解析し、`package:` / `requires:` をトポロジカルソートして、projects.json のエントリ（BaselineOf を先頭に置く）を出力する。`--write` を付けると projects.json に追記する。
 
 **Acceptance criteria:**
-- [ ] `requires:` の順序制約を満たし、Baseline 外の依存（外部プロジェクト名）は無視する
-- [ ] 循環依存はエラーにする
-- [ ] `~/git/Historia` で妥当なエントリを出力する
+- [x] `requires:` の順序制約を満たし、Baseline 外の依存（外部プロジェクト名）は無視する
+- [x] 循環依存はエラーにする
+- [x] `~/git/Historia` で妥当なエントリを出力する
 
 **Verification:**
-- [ ] `uv run pytest`（フィクスチャの BaselineOf を使ったパースとソートのテスト、循環依存のテスト）
-- [ ] 手動: `pds add-project ~/git/Historia` の出力を確認する
+- [x] `uv run pytest`（フィクスチャの BaselineOf を使ったパースとソートのテスト、循環依存のテスト）
+- [x] 手動: `pds add-project ~/git/Historia` の出力を確認する
 
 **Dependencies:** Task 1
 
