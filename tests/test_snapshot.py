@@ -105,3 +105,88 @@ def test_failing_tests_keep_previous_snapshot(build_layout, monkeypatch):
 
     assert (build_layout.current_snapshot_dir / "Pharo.image").read_text() == "previous"
     assert not (build_layout.snapshots_dir / "2026-10-13.json").exists()
+
+
+def make_current_snapshot(layout, manifest_date="2026-10-12"):
+    make_image_dir(layout.current_snapshot_dir)
+    layout.snapshots_dir.joinpath(f"{manifest_date}.json").write_text("{}")
+
+
+def test_incremental_build_loads_listed_packages_with_tonel_reader(build_layout, monkeypatch):
+    make_current_snapshot(build_layout)
+    scripts = []
+    monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED, scripts))
+
+    build_snapshot(build_layout, build_date=BUILD_DATE)
+
+    assert "TonelReader on:" in scripts[0]
+    assert "#( #( '/" in scripts[0] and "'BaselineOfHistoria' ) #( '" in scripts[0]
+    assert "Metacello new" not in scripts[0]
+
+
+def test_incremental_manifest_records_previous_snapshot_as_base(build_layout, monkeypatch):
+    make_current_snapshot(build_layout, "2026-10-12")
+    monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
+
+    build_snapshot(build_layout, build_date=BUILD_DATE)
+
+    manifest = json.loads((build_layout.snapshots_dir / "2026-10-13.json").read_text())
+    assert manifest["mode"] == "incremental"
+    assert manifest["base"] == "2026-10-12"
+
+
+def test_incremental_build_requires_current_snapshot(build_layout):
+    with pytest.raises(SnapshotBuildError, match="--full"):
+        build_snapshot(build_layout, build_date=BUILD_DATE)
+
+
+TONEL_PACKAGE = "Package {{ #name : 'PdsProbe' }}\n"
+TONEL_CLASS = """Class {{
+	#name : 'PdsProbe',
+	#superclass : 'Object',
+	#category : 'PdsProbe',
+	#package : 'PdsProbe'
+}}
+{methods}"""
+TONEL_METHOD = """
+{{ #category : 'probe' }}
+PdsProbe >> {selector} [
+	^ 1
+]
+"""
+
+
+def write_probe_package(src_dir, selectors):
+    package_dir = src_dir / "PdsProbe"
+    package_dir.mkdir(parents=True, exist_ok=True)
+    (package_dir / "package.st").write_text(TONEL_PACKAGE.format())
+    methods = "".join(TONEL_METHOD.format(selector=selector) for selector in selectors)
+    (package_dir / "PdsProbe.class.st").write_text(TONEL_CLASS.format(methods=methods))
+
+
+@pytest.mark.pharo
+def test_incremental_reload_removes_methods_deleted_from_the_package(pharo_layout, tmp_path):
+    from pds.image_dir import copy_image
+    from pds.pharo import run_pharo
+    from pds.st_script import render_template_file
+
+    image_dir = tmp_path / "image"
+    copy_image(pharo_layout, pharo_layout.plain_dir, image_dir)
+    src_dir = tmp_path / "src"
+    result_file = tmp_path / "selectors.txt"
+    script = tmp_path / "load.st"
+
+    def load_and_list_selectors():
+        script.write_text(
+            render_template_file("load_incremental.st", PACKAGE_SOURCES=[[str(src_dir), "PdsProbe"]])
+            + f"\n'{result_file}' asFileReference ensureDelete; writeStreamDo: [ :s | "
+            "s nextPutAll: ((Smalltalk at: #PdsProbe) selectors sorted joinUsing: ' ') ]."
+        )
+        run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8091, timeout=120, save=True)
+        return result_file.read_text().split()
+
+    write_probe_package(src_dir, ["kept", "removed"])
+    assert load_and_list_selectors() == ["kept", "removed"]
+
+    write_probe_package(src_dir, ["kept"])
+    assert load_and_list_selectors() == ["kept"]

@@ -173,13 +173,13 @@
 **Description:** `current` を元に、projects.json の packages の記述順で TonelReader による直接ロードを行う（SIS の `handleImportPackage:` と同じ方式）。テスト、確定、manifest、archive の処理は Task 7 と共通にする。
 
 **Acceptance criteria:**
-- [ ] `current` が無い場合は `--full` を案内して中断する
-- [ ] manifest の mode が `incremental`、base が前回の manifest になる
-- [ ] Historia で develop にメソッドの削除を入れた場合、incremental 後のイメージからそのメソッドが消えている（前提の検証）
+- [x] `current` が無い場合は `--full` を案内して中断する
+- [x] manifest の mode が `incremental`、base が前回の manifest になる
+- [x] Historia で develop にメソッドの削除を入れた場合、incremental 後のイメージからそのメソッドが消えている（前提の検証。Historia ではなく `test_incremental_reload_removes_methods_deleted_from_the_package` の統合テストで確認）
 
 **Verification:**
-- [ ] `uv run pytest`（モードによる分岐のユニットテスト）
-- [ ] 手動: Historia で incremental を実行し、所要時間を full と比較して記録する
+- [x] `uv run pytest`（モードによる分岐のユニットテスト）
+- [x] 手動: Historia で incremental を実行し、所要時間を full と比較して記録する（2026-10-13: incremental 16.5秒 / full 21秒。Historia の `HsBankTestCase>>#testAccountsPropagated` が1回だけ失敗し、ビルドは正しく却下された。Redis の状態に依存する不安定なテスト）
 
 **Dependencies:** Task 7
 

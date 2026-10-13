@@ -31,6 +31,15 @@ def full_load_script(fetched_sources):
     )
 
 
+def incremental_load_script(fetched_sources):
+    return render_template_file(
+        "load_incremental.st",
+        PACKAGE_SOURCES=[
+            [str(source.src_path), package] for source in fetched_sources for package in source.project["packages"]
+        ],
+    )
+
+
 def test_packages(projects):
     return [
         package
@@ -83,20 +92,33 @@ def archive_current_snapshot(layout, build_date):
             archive.add(path, arcname=path.name)
 
 
+def latest_manifest_name(layout):
+    manifests = sorted(layout.snapshots_dir.glob("*.json"))
+    return manifests[-1].stem if manifests else None
+
+
 def build_snapshot(layout, full=False, build_date=None):
+    """full: dev-base + Metacello baselines; incremental (default): current + TonelReader in projects.json order."""
     build_date = build_date or date.today()
     projects = read_projects(layout)
+    if full:
+        mode, base, origin_dir, load_script_for = "full", "dev-base", layout.dev_base_dir, full_load_script
+    else:
+        if not image_path(layout.current_snapshot_dir).exists():
+            raise SnapshotBuildError("snapshots/current does not exist; run `pds build-snapshot --full` first")
+        mode, base, origin_dir = "incremental", latest_manifest_name(layout), layout.current_snapshot_dir
+        load_script_for = incremental_load_script
     with tempfile.TemporaryDirectory(prefix="pds-sources-") as extract_root:
         fetched_sources = fetch_project_sources(projects, extract_root)
         with staged_replacement(layout.current_snapshot_dir, force=True) as build_dir:
-            copy_image(layout, layout.dev_base_dir, build_dir)
+            copy_image(layout, origin_dir, build_dir)
             script = build_dir / BUILD_SCRIPT_FILE_NAME
-            script.write_text(build_script(full_load_script(fetched_sources), projects, build_dir))
+            script.write_text(build_script(load_script_for(fetched_sources), projects, build_dir))
             run_pharo(
                 layout, image_path(build_dir), script, port=BUILD_SIS_PORT, timeout=BUILD_TIMEOUT_SECONDS, save=True
             )
             script.unlink()
             test_results = read_test_results(build_dir)
             remove_iceberg_cache(build_dir)
-    write_manifest(layout, build_date, "full", "dev-base", fetched_sources, test_results)
+    write_manifest(layout, build_date, mode, base, fetched_sources, test_results)
     archive_current_snapshot(layout, build_date)
