@@ -7,6 +7,7 @@ from pds.dev_base import prepare_dev_base
 from pds.layout import Layout
 from pds.mcp_config import launch_claude
 from pds.projects import add_project_entry
+from pds.snapshot import build_snapshot
 from pds.slot import SLOT_NUMBERS, reset_slot, start_slot, stop_slot
 from pds.setup_plain import setup_plain
 
@@ -47,6 +48,10 @@ def build_parser():
     add_project_parser.add_argument("--groups", default="default", help="comma-separated Metacello groups (default: default)")
     add_project_parser.add_argument("--write", action="store_true", help="append the entry to projects.json")
     add_project_parser.set_defaults(handler=add_project)
+
+    build_snapshot_parser = commands.add_parser("build-snapshot", help="build snapshots/current from origin/develop")
+    build_snapshot_parser.add_argument("--full", action="store_true", help="rebuild from dev-base through the baselines")
+    build_snapshot_parser.set_defaults(handler=lambda layout, args: build_snapshot(layout, full=args.full))
 
     return parser
 

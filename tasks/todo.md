@@ -152,13 +152,13 @@
 **Description:** dev-base を `snapshots/.build/` にコピーし、Task 6 で取得したソースを各リポジトリの記述順に Metacello `tonel://` + `baseline:` でロードする。全パッケージのテストを実行して結果を JSON で出力し、全テストが成功したら save & quit、iceberg の削除、`current` の rename 差し替え、`snapshots/YYYY-MM-DD.json`（mode、base、SHA、テスト集計）の書き出し、`archives/YYYY-MM-DD.tar.gz` の作成を行う。
 
 **Acceptance criteria:**
-- [ ] 成功時は `current`、manifest、archive が揃い、`current` に `pharo-local/iceberg` が無い
-- [ ] ロードの失敗、またはテストが1件でも失敗した場合は `current` を変更せず、失敗したテストの一覧を表示して非ゼロで終了する
-- [ ] ビルド中は専用ポート（8090）を使う
+- [x] 成功時は `current`、manifest、archive が揃い、`current` に `pharo-local/iceberg` が無い
+- [x] ロードの失敗、またはテストが1件でも失敗した場合は `current` を変更せず、失敗したテストの一覧を表示して非ゼロで終了する
+- [x] ビルド中は専用ポート（8090）を使う
 
 **Verification:**
-- [ ] `uv run pytest`（manifest の生成、差し替え、失敗時に current が不変であることのユニットテスト。`run_pharo` はスタブ）
-- [ ] 手動: Historia で `pds build-snapshot --full` を実行し、所要時間を記録する
+- [x] `uv run pytest`（manifest の生成、差し替え、失敗時に current が不変であることのユニットテスト。`run_pharo` はスタブ）
+- [x] 手動: Historia で `pds build-snapshot --full` を実行し、所要時間を記録する（2026-10-13: 21秒、46件中46件のテストが通過）
 
 **Dependencies:** Task 2、Task 6
 

@@ -57,7 +57,7 @@ T5 と T6 は Pharo に依存しないので、T2〜T4 と並行して進めら�
 - [ ] 人間によるレビュー
 
 ### Phase 3: スナップショットビルド
-- [ ] Task 7: `build-snapshot --full`（end-to-end：テスト → 確定 → manifest → archive）
+- [x] Task 7: `build-snapshot --full`（end-to-end：テスト → 確定 → manifest → archive）
 - [ ] Task 8: `build-snapshot`（incremental）
 - [ ] Task 9: incremental で Baseline の変化を検知して中断
 
