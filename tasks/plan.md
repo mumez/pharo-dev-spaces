@@ -36,7 +36,7 @@ T5 と T6 は Pharo に依存しないので、T2〜T4 と並行して進めら�
 ## Task List
 
 ### Phase 1: 土台とスロット（最もリスクの高い起動まわりから）
-- [ ] Task 1: CLI の骨格、`setup-plain`、`run_pharo`
+- [x] Task 1: CLI の骨格、`setup-plain`、`run_pharo`
 - [ ] Task 2: `prepare-dev-base`
 - [ ] Task 3: `slot reset / up / down`
 

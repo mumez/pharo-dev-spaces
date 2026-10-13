@@ -12,13 +12,13 @@
 **Description:** `git init`、uv プロジェクト、`pds` CLI のサブコマンドの枠を作る。`pds setup-plain --version 140` で `plain-pharo/` を作り（get.pharo.org を呼び出す）、Pharo を timeout 付きで `PHARO_SIS_PORT` を渡して実行する共通関数 `run_pharo` を用意する。
 
 **Acceptance criteria:**
-- [ ] `pds setup-plain --version 140` で `plain-pharo/` に image、VM、sources ができる。既に存在する場合は `--force` が無ければ中断する
-- [ ] `run_pharo` で `Transcript`（標準出力）に書くだけの `.st` を実行でき、終了コードと timeout が扱える
-- [ ] `.gitignore` で生成物を除外し、`snapshots/*.json` は追跡対象にする
+- [x] `pds setup-plain --version 140` で `plain-pharo/` に image、VM、sources ができる。既に存在する場合は `--force` が無ければ中断する
+- [x] `run_pharo` で `Transcript`（標準出力）に書くだけの `.st` を実行でき、終了コードと timeout が扱える
+- [x] `.gitignore` で生成物を除外し、`snapshots/*.json` は追跡対象にする
 
 **Verification:**
-- [ ] `uv run pytest`（コマンド組み立て、環境変数、timeout のユニットテスト）
-- [ ] `uv run pytest -m pharo`（`run_pharo` で `1+1` を JSON に書いて読む）
+- [x] `uv run pytest`（コマンド組み立て、環境変数、timeout のユニットテスト）
+- [x] `uv run pytest -m pharo`（`run_pharo` で `1+1` を JSON に書いて読む）
 
 **Dependencies:** なし
 
