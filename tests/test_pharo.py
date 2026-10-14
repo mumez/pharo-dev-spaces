@@ -3,7 +3,8 @@ import subprocess
 
 import pytest
 
-from pds.pharo import PharoRunError, run_pharo, script_command
+from pds import pharo
+from pds.pharo import PharoRunError, launch_pharo_ui, pharo_ui_command, run_pharo, script_command
 
 
 def test_pharo_command_runs_script_headless_and_quits(layout, tmp_path):
@@ -25,6 +26,26 @@ def test_pharo_command_leaves_save_and_quit_to_script_when_save_is_none(layout, 
     command = script_command(layout, tmp_path / "Pharo.image", tmp_path / "s.st", save=None)
 
     assert command[2:] == ["st", str(tmp_path / "s.st")]
+
+
+def test_pharo_ui_command_uses_gui_launcher(layout, tmp_path):
+    image = tmp_path / "Pharo.image"
+
+    command = pharo_ui_command(layout, image)
+
+    assert command == [str(layout.plain_dir / "pharo-ui"), str(image)]
+
+
+def test_launch_pharo_ui_execs_with_sis_port(layout, tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(pharo.os, "execvpe", lambda path, args, env: calls.append((path, args, env)))
+
+    launch_pharo_ui(layout, tmp_path / "Pharo.image", 8086)
+
+    path, args, env = calls[0]
+    assert path.endswith("pharo-ui")
+    assert args == [str(layout.plain_dir / "pharo-ui"), str(tmp_path / "Pharo.image")]
+    assert env["PHARO_SIS_PORT"] == "8086"
 
 
 def test_run_pharo_passes_sis_port_and_timeout(layout, tmp_path, monkeypatch):

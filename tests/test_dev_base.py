@@ -1,7 +1,7 @@
 import pytest
 
 from pds import dev_base
-from pds.dev_base import prepare_dev_base
+from pds.dev_base import prepare_dev_base, run_dev_base
 from pds.pharo import PharoRunError
 from tests.test_image_dir import make_image_dir
 
@@ -56,3 +56,18 @@ def test_prepare_dev_base_replaces_existing_when_forced(plain_layout, monkeypatc
 
     assert not (plain_layout.dev_base_dir / "stale").exists()
     assert (plain_layout.dev_base_dir / "Pharo.image").exists()
+
+
+def test_run_dev_base_requires_prepared_image(layout):
+    with pytest.raises(FileNotFoundError, match="prepare-dev-base"):
+        run_dev_base(layout)
+
+
+def test_run_dev_base_launches_gui_on_standalone_port(plain_layout, monkeypatch):
+    make_image_dir(plain_layout.dev_base_dir)
+    calls = []
+    monkeypatch.setattr(dev_base, "launch_pharo_ui", lambda layout, image, port: calls.append((image, port)))
+
+    run_dev_base(plain_layout)
+
+    assert calls == [(plain_layout.dev_base_dir / "Pharo.image", 8086)]

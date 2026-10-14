@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
-from pds.pharo import BUILD_SIS_PORT, run_pharo
+from pds.pharo import BUILD_SIS_PORT, STANDALONE_SIS_PORT, launch_pharo_ui, run_pharo
 
 # AgenticBrowser baseline pulls SIS; the .st itself snapshots and quits.
 LOAD_AGENTIC_BROWSER_SCRIPT = Path(__file__).parent / "st" / "load_agentic_browser.st"
@@ -25,3 +25,11 @@ def prepare_dev_base(layout, force=False):
             save=None,
         )
         remove_iceberg_cache(staging_dir)
+
+
+def run_dev_base(layout):
+    """Open dev-base in the GUI (verification). Replaces this process; SIS on port 8086."""
+    image = image_path(layout.dev_base_dir)
+    if not image.exists():
+        raise FileNotFoundError(f"{image} does not exist; run `pds prepare-dev-base` first")
+    launch_pharo_ui(layout, image, STANDALONE_SIS_PORT)

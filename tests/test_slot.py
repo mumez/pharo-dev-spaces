@@ -109,11 +109,32 @@ def test_start_slot_launches_headless_image_on_slot_port(layout, monkeypatch):
     start_slot(layout, 3)
 
     command, kwargs = launches[0]
+    assert command[0].endswith("pharo")
     assert command[1] == str(slot_dir(layout, 3) / "Pharo.image")
     assert command[2:] == ["eval", "--no-quit", "nil"]
     assert kwargs["env"]["PHARO_SIS_PORT"] == "8089"
     assert kwargs["start_new_session"] is True
     assert (slot_dir(layout, 3) / "pharo.pid").read_text() == "4242"
+
+
+def test_start_slot_gui_launches_pharo_ui_on_slot_port(layout, monkeypatch):
+    make_image_dir(slot_dir(layout, 2))
+    launches = []
+
+    class FakePopen:
+        pid = 5151
+
+        def __init__(self, command, **kwargs):
+            launches.append((command, kwargs))
+
+    monkeypatch.setattr(slot.subprocess, "Popen", FakePopen)
+
+    start_slot(layout, 2, gui=True)
+
+    command, kwargs = launches[0]
+    assert command == [str(layout.plain_dir / "pharo-ui"), str(slot_dir(layout, 2) / "Pharo.image")]
+    assert kwargs["env"]["PHARO_SIS_PORT"] == "8088"
+    assert (slot_dir(layout, 2) / "pharo.pid").read_text() == "5151"
 
 
 def test_stop_slot_terminates_the_whole_process_group(layout):

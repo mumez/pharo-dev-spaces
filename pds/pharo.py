@@ -2,6 +2,7 @@ import os
 import subprocess
 
 # SIS starts in every image we launch; builds use their own port so they never clash with slots or 8086.
+STANDALONE_SIS_PORT = 8086  # reserved for a lone GUI/headless image (e.g. run-dev-base)
 BUILD_SIS_PORT = 8090
 
 
@@ -12,6 +13,17 @@ class PharoRunError(RuntimeError):
 def pharo_command(layout, image, *arguments):
     """Command line running `image` headless with the shared plain-pharo VM."""
     return [str(layout.plain_dir / "pharo"), str(image), *arguments]
+
+
+def pharo_ui_command(layout, image, *arguments):
+    """Command line running `image` with the GUI VM (plain-pharo/pharo-ui)."""
+    return [str(layout.plain_dir / "pharo-ui"), str(image), *arguments]
+
+
+def launch_pharo_ui(layout, image, port):
+    """Replace this process with a GUI Pharo listening on `port`."""
+    command = pharo_ui_command(layout, image)
+    os.execvpe(command[0], command, pharo_environment(port))
 
 
 def script_command(layout, image, script, save=False):

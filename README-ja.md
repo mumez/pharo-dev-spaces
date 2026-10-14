@@ -12,6 +12,7 @@ uv run pds setup-plain --version 140          # plain-pharo/ に Pharo 14 の im
 uv run pds prepare-dev-base                   # plain をコピーし load_agentic_browser.st を実行 → dev-base/
 # 同等の手作業（コピー済みイメージ上）:
 #   plain-pharo/pharo Pharo.image st pds/st/load_agentic_browser.st
+uv run pds run-dev-base                       # dev-base を GUI で起動（確認用、SIS=8086）
 uv run pds add-project ~/git/Historia --write # BaselineOf から projects.json にロード順を登録
 
 uv run pds build-snapshot --full              # 初回・作り直し: dev-base + Metacello(tonel://) → テスト → snapshots/current
@@ -19,6 +20,7 @@ uv run pds build-snapshot                     # 毎日: current + TonelReader（
 
 uv run pds slot reset 2                       # snapshots/current（無ければ dev-base）から slots/slot2 を作り直す
 uv run pds slot up 2                          # PHARO_SIS_PORT=8088 で headless 起動
+uv run pds slot gui 2                         # 同ポートで pharo-ui 起動（インタラクティブ開発用）
 uv run pds slot claude 2                      # slot2 に接続した MCP 設定で claude を起動（追加の引数は -- の後に）
 uv run pds slot down 2
 ```

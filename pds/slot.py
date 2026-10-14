@@ -6,10 +6,10 @@ import subprocess
 import time
 
 from pds.image_dir import copy_image, image_path, staged_replacement
-from pds.pharo import keep_alive_command, pharo_environment
+from pds.pharo import STANDALONE_SIS_PORT, keep_alive_command, pharo_environment, pharo_ui_command
 
 SLOT_NUMBERS = (1, 2, 3)
-SLOT_BASE_PORT = 8086  # stays free for a standalone image; slot N listens on 8086 + N
+SLOT_BASE_PORT = STANDALONE_SIS_PORT  # stays free for a standalone image; slot N listens on 8086 + N
 STOP_TIMEOUT_SECONDS = 10
 
 
@@ -64,14 +64,16 @@ def reset_slot(layout, slot_number):
         copy_image(layout, slot_origin_dir(layout), staging_dir)
 
 
-def start_slot(layout, slot_number):
+def start_slot(layout, slot_number, gui=False):
+    """Start the slot in the background. gui=True uses pharo-ui; otherwise headless keep-alive."""
     ensure_slot_stopped(layout, slot_number)
     slot_image = image_path(slot_dir(layout, slot_number))
     if not slot_image.exists():
         raise FileNotFoundError(f"{slot_image} does not exist; run `pds slot reset {slot_number}` first")
+    command = pharo_ui_command(layout, slot_image) if gui else keep_alive_command(layout, slot_image)
     with open(slot_dir(layout, slot_number) / "pharo.log", "ab") as log:
         process = subprocess.Popen(
-            keep_alive_command(layout, slot_image),
+            command,
             env=pharo_environment(slot_port(slot_number)),
             stdin=subprocess.DEVNULL,
             stdout=log,

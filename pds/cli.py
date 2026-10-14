@@ -3,7 +3,7 @@ import json
 import sys
 
 from pds.baseline import project_entry
-from pds.dev_base import prepare_dev_base
+from pds.dev_base import prepare_dev_base, run_dev_base
 from pds.layout import Layout
 from pds.mcp_config import launch_claude
 from pds.projects import add_project_entry
@@ -27,6 +27,9 @@ def build_parser():
     prepare_dev_base_parser.add_argument("--force", action="store_true", help="replace an existing dev-base/")
     prepare_dev_base_parser.set_defaults(handler=lambda layout, args: prepare_dev_base(layout, args.force))
 
+    run_dev_base_parser = commands.add_parser("run-dev-base", help="open dev-base in the GUI (verification)")
+    run_dev_base_parser.set_defaults(handler=lambda layout, args: run_dev_base(layout))
+
     slot_parser = commands.add_parser("slot", help="manage the fixed slots slot1..3")
     slot_actions = slot_parser.add_subparsers(dest="slot_action", required=True)
     for action, handler, help_text in (
@@ -37,6 +40,10 @@ def build_parser():
         action_parser = slot_actions.add_parser(action, help=help_text)
         action_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
         action_parser.set_defaults(handler=lambda layout, args, handler=handler: handler(layout, args.slot_number))
+
+    gui_parser = slot_actions.add_parser("gui", help="start the slot with pharo-ui (interactive development)")
+    gui_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
+    gui_parser.set_defaults(handler=lambda layout, args: start_slot(layout, args.slot_number, gui=True))
 
     claude_parser = slot_actions.add_parser("claude", help="run Claude Code with MCP pointed at the slot")
     claude_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
