@@ -9,7 +9,9 @@ pharo の　AIコーディングエージェント用の開発用イメージ管
 ```bash
 uv sync
 uv run pds setup-plain --version 140          # plain-pharo/ に Pharo 14 の image + VM を取得
-uv run pds prepare-dev-base                   # dev-base/ = plain + SIS + AgenticBrowser
+uv run pds prepare-dev-base                   # plain をコピーし load_agentic_browser.st を実行 → dev-base/
+# 同等の手作業（コピー済みイメージ上）:
+#   plain-pharo/pharo Pharo.image st pds/st/load_agentic_browser.st
 uv run pds add-project ~/git/Historia --write # BaselineOf から projects.json にロード順を登録
 
 uv run pds build-snapshot --full              # 初回・作り直し: dev-base + Metacello(tonel://) → テスト → snapshots/current

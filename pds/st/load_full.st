@@ -3,6 +3,6 @@
 	Metacello new
 		baseline: (each at: 1);
 		repository: (each at: 2);
-		onUpgrade: [ :upgrade | upgrade allow ];
+		onUpgrade: [ :upgrade | upgrade useIncoming ];
 		onConflictUseIncoming;
 		load: (each at: 3) ].

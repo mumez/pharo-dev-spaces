@@ -15,6 +15,14 @@ def pharo_command(layout, image, *arguments):
 
 
 def script_command(layout, image, script, save=False):
+    """Build `pharo image st [...] script`.
+
+    save=True  -> st --save --quit
+    save=False -> st --quit
+    save=None  -> st <script> only (script handles snapshot/quit, e.g. load_agentic_browser.st)
+    """
+    if save is None:
+        return pharo_command(layout, image, "st", str(script))
     st_options = ["--save", "--quit"] if save else ["--quit"]
     return pharo_command(layout, image, "st", *st_options, str(script))
 

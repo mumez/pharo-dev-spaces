@@ -2,8 +2,8 @@ plain-pharo/
 dev-pharo/
 dev-base/
 slots/
-snapshots/current/
-snapshots/.build*/
+projects.json
+snapshots/
 archives/
 .venv/
 __pycache__/

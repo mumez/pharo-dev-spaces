@@ -14,7 +14,7 @@
 **Acceptance criteria:**
 - [x] `pds setup-plain --version 140` で `plain-pharo/` に image、VM、sources ができる。既に存在する場合は `--force` が無ければ中断する
 - [x] `run_pharo` で `Transcript`（標準出力）に書くだけの `.st` を実行でき、終了コードと timeout が扱える
-- [x] `.gitignore` で生成物を除外し、`snapshots/*.json` は追跡対象にする
+- [x] `.gitignore` で生成物を除外する（`projects.json`、`snapshots/` 含む）
 
 **Verification:**
 - [x] `uv run pytest`（コマンド組み立て、環境変数、timeout のユニットテスト）
@@ -33,17 +33,17 @@
 **Description:** `plain-pharo/` の image と changes を `dev-base/` にコピーし（sources はシンボリックリンク）、SIS（`PharoSmalltalkInteropServer`、`github://mumez/PharoSmalltalkInteropServer:main/src`）と AgenticBrowser（`AgenticBrowser`、`github://mumez/pharo-agentic-browser:main/src`、group `'all'`）を Metacello でロードして save & quit する。プロジェクトの外部依存はここでは入れない（full ビルドの Baseline が解決する）。その後 `remove_iceberg_cache` で `pharo-local/iceberg` を削除する。
 
 **Acceptance criteria:**
-- [ ] `pds prepare-dev-base` で `dev-base/Pharo.image` ができ、`pharo-local/iceberg` は残らない（**BLOCKED**: Pharo 14 で AgenticBrowser をロードすると、Ripple が要求する zinc v5 の `Zinc-HTTP` で止まる。`metacello install` ハンドラでも同じ。SIS のみは5秒でロードできる）
-- [x] `PHARO_SIS_PORT=8099` で dev-base を起動すると SIS がそのポートで応答する（`#port` が永続化されていない）。SIS のみの dev-base で確認済み
+- [x] `pds prepare-dev-base` で `dev-base/Pharo.image` ができ、`pharo-local/iceberg` は残らない（実装は `pds/st/load_agentic_browser.st` の one-liner。SIS は AgenticBrowser 経由。2026-10-14 約32秒で成功）
+- [x] `PHARO_SIS_PORT=8099` で dev-base を起動すると SIS がそのポートで応答する（`#port` が永続化されていない）
 - [x] ロードに失敗したら非ゼロで終了し、`dev-base/` は作りかけの状態で残らない
 
 **Verification:**
-- [ ] `uv run pytest`（コピーやシンボリックリンクの作成、iceberg の削除のユニットテスト）
-- [ ] 手動: `curl localhost:8099/list-packages` に `Sis-Core` が含まれる
+- [x] `uv run pytest`（コピーやシンボリックリンクの作成、iceberg の削除のユニットテスト）
+- [x] 手動: `curl localhost:8099/list-packages` に `Sis-Core` / `AgenticBrowser-Core` が含まれる
 
 **Dependencies:** Task 1
 
-**Files likely touched:** `pds/dev_base.py`、`pds/image_dir.py`（コピー、リンク、iceberg 削除の共通処理）、`pds/st/prepare_dev_base.st`、`tests/test_image_dir.py`
+**Files likely touched:** `pds/dev_base.py`、`pds/image_dir.py`、`pds/st/load_agentic_browser.st`、`tests/test_dev_base.py`
 
 **Estimated scope:** M
 

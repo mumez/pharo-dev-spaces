@@ -21,7 +21,9 @@ def build_parser():
     setup_plain_parser.add_argument("--force", action="store_true", help="replace an existing plain-pharo/")
     setup_plain_parser.set_defaults(handler=lambda layout, args: setup_plain(layout, args.version, args.force))
 
-    prepare_dev_base_parser = commands.add_parser("prepare-dev-base", help="plain + SIS + AgenticBrowser -> dev-base/")
+    prepare_dev_base_parser = commands.add_parser(
+        "prepare-dev-base", help="plain + load_agentic_browser.st -> dev-base/"
+    )
     prepare_dev_base_parser.add_argument("--force", action="store_true", help="replace an existing dev-base/")
     prepare_dev_base_parser.set_defaults(handler=lambda layout, args: prepare_dev_base(layout, args.force))
 

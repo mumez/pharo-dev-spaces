@@ -21,6 +21,12 @@ def test_pharo_command_saves_when_requested(layout, tmp_path):
     assert command[2:5] == ["st", "--save", "--quit"]
 
 
+def test_pharo_command_leaves_save_and_quit_to_script_when_save_is_none(layout, tmp_path):
+    command = script_command(layout, tmp_path / "Pharo.image", tmp_path / "s.st", save=None)
+
+    assert command[2:] == ["st", str(tmp_path / "s.st")]
+
+
 def test_run_pharo_passes_sis_port_and_timeout(layout, tmp_path, monkeypatch):
     calls = []
 

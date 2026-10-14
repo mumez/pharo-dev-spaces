@@ -18,7 +18,7 @@
 - **iceberg の後始末は共通関数にする**: `remove_iceberg_cache(dir)` を prepare-dev-base と full ビルドの両方から使う。
 - **テストは2層に分ける**: Pharo 不要のユニットテスト（既定で実行）と、`plain-pharo` を実際に起動する統合テスト（`-m pharo` で明示的に実行）。
 - **dev-base には SIS と AgenticBrowser だけを入れる**: SIS は `PharoSmalltalkInteropServer` @ `github://mumez/PharoSmalltalkInteropServer:main/src`、AgenticBrowser は `AgenticBrowser` @ `github://mumez/pharo-agentic-browser:main/src`（group `'all'`）。プロジェクトの外部依存は full ビルドの Baseline が解決する。
-- **git 管理を始める**: 現在は git リポジトリではない。Task 1 で `git init` し、`plain-pharo/`、`dev-base/`、`slots/`、`snapshots/current/`、`archives/` は ignore する（`snapshots/*.json` はコミット対象）。
+- **git 管理を始める**: 現在は git リポジトリではない。Task 1 で `git init` し、`plain-pharo/`、`dev-base/`、`slots/`、`projects.json`、`snapshots/`、`archives/` は ignore する。
 
 ## Dependency Graph
 
@@ -37,7 +37,7 @@ T5 と T6 は Pharo に依存しないので、T2〜T4 と並行して進めら�
 
 ### Phase 1: 土台とスロット（最もリスクの高い起動まわりから）
 - [x] Task 1: CLI の骨格、`setup-plain`、`run_pharo`
-- [ ] Task 2:（AgenticBrowser のロードが BLOCKED。SIS のみで暫定運用） `prepare-dev-base`
+- [x] Task 2: `prepare-dev-base`（`pds/st/load_agentic_browser.st` の one-liner。2026-10-14 確認済み）
 - [x] Task 3: `slot reset / up / down`
 
 ### Checkpoint A

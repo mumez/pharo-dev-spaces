@@ -14,8 +14,8 @@ def plain_layout(layout):
 
 
 def fake_successful_run(layout, image, script, port, timeout, save=False):
-    assert save
-    assert script.name == "prepare_dev_base.st"
+    assert save is None
+    assert script.name == "load_agentic_browser.st"
     (image.parent / "pharo-local" / "iceberg" / "Sis").mkdir(parents=True)
 
 
