@@ -4,6 +4,8 @@ import subprocess
 # SIS starts in every image we launch; builds use their own port so they never clash with slots or 8086.
 STANDALONE_SIS_PORT = 8086  # reserved for a lone GUI/headless image (e.g. run-dev-base)
 BUILD_SIS_PORT = 8090
+# Ripple (AgenticBrowser WebUI) also listens in every image; keep it next to the SIS port so images never share it.
+RIPPLE_PORT_OFFSET_FROM_SIS = 1000
 
 
 class PharoRunError(RuntimeError):
@@ -44,8 +46,12 @@ def keep_alive_command(layout, image):
 
 
 def pharo_environment(port):
-    """SIS in the image listens on `port` (read by SisSettings at startup)."""
-    return {**os.environ, "PHARO_SIS_PORT": str(port)}
+    """SIS listens on `port` and Ripple on `port` + 1000 (read from the environment at image startup)."""
+    return {
+        **os.environ,
+        "PHARO_SIS_PORT": str(port),
+        "PHARO_RIPPLE_PORT": str(port + RIPPLE_PORT_OFFSET_FROM_SIS),
+    }
 
 
 def run_pharo(layout, image, script, port, timeout, save=False):

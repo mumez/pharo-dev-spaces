@@ -4,7 +4,7 @@ import subprocess
 import pytest
 
 from pds import pharo
-from pds.pharo import PharoRunError, launch_pharo_ui, pharo_ui_command, run_pharo, script_command
+from pds.pharo import PharoRunError, launch_pharo_ui, pharo_environment, pharo_ui_command, run_pharo, script_command
 
 
 def test_pharo_command_runs_script_headless_and_quits(layout, tmp_path):
@@ -61,6 +61,12 @@ def test_run_pharo_passes_sis_port_and_timeout(layout, tmp_path, monkeypatch):
 
     assert calls[0]["env"]["PHARO_SIS_PORT"] == "8090"
     assert calls[0]["timeout"] == 30
+
+
+def test_ripple_port_follows_sis_port_and_overrides_the_shell(monkeypatch):
+    monkeypatch.setenv("PHARO_RIPPLE_PORT", "8888")
+
+    assert pharo_environment(8087)["PHARO_RIPPLE_PORT"] == "9087"
 
 
 def test_run_pharo_raises_on_nonzero_exit(layout, tmp_path, monkeypatch):
