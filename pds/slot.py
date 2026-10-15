@@ -55,7 +55,7 @@ def is_slot_running(layout, slot_number):
 
 def ensure_slot_stopped(layout, slot_number):
     if is_slot_running(layout, slot_number):
-        raise RuntimeError(f"slot{slot_number} is running; run `pds slot down {slot_number}` first")
+        raise RuntimeError(f"slot{slot_number} is running; run `pds slot {slot_number} down` first")
 
 
 def reset_slot(layout, slot_number):
@@ -69,7 +69,7 @@ def start_slot(layout, slot_number, gui=False):
     ensure_slot_stopped(layout, slot_number)
     slot_image = image_path(slot_dir(layout, slot_number))
     if not slot_image.exists():
-        raise FileNotFoundError(f"{slot_image} does not exist; run `pds slot reset {slot_number}` first")
+        raise FileNotFoundError(f"{slot_image} does not exist; run `pds slot {slot_number} reset` first")
     command = pharo_ui_command(layout, slot_image) if gui else keep_alive_command(layout, slot_image)
     with open(slot_dir(layout, slot_number) / "pharo.log", "ab") as log:
         process = subprocess.Popen(

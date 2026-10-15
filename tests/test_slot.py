@@ -90,7 +90,7 @@ def test_running_slot_cannot_be_reset_or_started(layout):
 
 
 def test_start_slot_requires_reset_first(layout):
-    with pytest.raises(FileNotFoundError, match="slot reset"):
+    with pytest.raises(FileNotFoundError, match="slot 1 reset"):
         start_slot(layout, 1)
 
 

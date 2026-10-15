@@ -18,11 +18,12 @@ uv run pds add-project ~/git/Historia --write # Baseline 名・srcDir・groups �
 uv run pds build-snapshot --full              # 初回・作り直し: dev-base + Metacello(tonel://) → テスト → snapshots/current
 uv run pds build-snapshot                     # 毎日: current + Metacello(tonel://) → テスト → snapshots/current
 
-uv run pds slot reset 2                       # snapshots/current（無ければ dev-base）から slots/slot2 を作り直す
-uv run pds slot up 2                          # PHARO_SIS_PORT=8088 で headless 起動
-uv run pds slot gui 2                         # 同ポートで pharo-ui 起動（インタラクティブ開発用）
-uv run pds slot claude 2                      # slot2 に接続した MCP 設定で claude を起動（追加の引数は -- の後に）
-uv run pds slot down 2
+uv run pds slot 2 reset                       # snapshots/current（無ければ dev-base）から slots/slot2 を作り直す
+uv run pds slot 2 up                          # PHARO_SIS_PORT=8088 で headless 起動
+uv run pds slot 2 gui                         # 同ポートで pharo-ui 起動（インタラクティブ開発用）
+uv run pds slot 2 claude                      # slot2 に接続した MCP 設定で claude を起動（追加の引数は -- の後に）
+uv run pds slot 2 claude -- -p "/st-eval Smalltalk version"
+uv run pds slot 2 down
 ```
 
 - スロットは slot1〜3 で、ポートは 8087〜8089（8086 は単独利用のために空けておく）

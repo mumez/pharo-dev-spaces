@@ -58,6 +58,6 @@ def claude_command(mcp_config_path, claude_arguments):
 def launch_claude(layout, slot_number, claude_arguments):
     """Replace this process with Claude Code connected to the slot's image."""
     if not is_slot_running(layout, slot_number):
-        print(f"pds: warning: slot{slot_number} is not running; start it with `pds slot up {slot_number}`", file=sys.stderr)
+        print(f"pds: warning: slot{slot_number} is not running; start it with `pds slot {slot_number} up`", file=sys.stderr)
     command = claude_command(write_slot_mcp_config(layout, slot_number), claude_arguments)
     os.execvp(command[0], command)

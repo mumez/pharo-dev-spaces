@@ -50,5 +50,5 @@ def test_launch_claude_warns_when_slot_is_not_running(layout, monkeypatch, capsy
 
     launch_claude(layout, 1, [])
 
-    assert "pds slot up 1" in capsys.readouterr().err
+    assert "pds slot 1 up" in capsys.readouterr().err
     assert executed[0][:2] == ["claude", "--strict-mcp-config"]

@@ -30,7 +30,8 @@ def build_parser():
     run_dev_base_parser = commands.add_parser("run-dev-base", help="open dev-base in the GUI (verification)")
     run_dev_base_parser.set_defaults(handler=lambda layout, args: run_dev_base(layout))
 
-    slot_parser = commands.add_parser("slot", help="manage the fixed slots slot1..3")
+    slot_parser = commands.add_parser("slot", help="manage the fixed slots slot1..3: pds slot N <action>")
+    slot_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
     slot_actions = slot_parser.add_subparsers(dest="slot_action", required=True)
     for action, handler, help_text in (
         ("reset", reset_slot, "recreate the slot from snapshots/current (or dev-base)"),
@@ -38,18 +39,15 @@ def build_parser():
         ("down", stop_slot, "stop the slot"),
     ):
         action_parser = slot_actions.add_parser(action, help=help_text)
-        action_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
         action_parser.set_defaults(handler=lambda layout, args, handler=handler: handler(layout, args.slot_number))
 
     gui_parser = slot_actions.add_parser("gui", help="start the slot with pharo-ui (interactive development)")
-    gui_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
     gui_parser.set_defaults(handler=lambda layout, args: start_slot(layout, args.slot_number, gui=True))
 
     claude_parser = slot_actions.add_parser("claude", help="run Claude Code with MCP pointed at the slot")
-    claude_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
     claude_parser.add_argument("claude_arguments", nargs=argparse.REMAINDER, help="passed to claude (after --)")
     claude_parser.set_defaults(
-        handler=lambda layout, args: launch_claude(layout, args.slot_number, args.claude_arguments)
+        handler=lambda layout, args: launch_claude(layout, args.slot_number, without_leading_double_dash(args.claude_arguments))
     )
 
     add_project_parser = commands.add_parser("add-project", help="print a projects.json entry derived from BaselineOf")
@@ -63,6 +61,11 @@ def build_parser():
     build_snapshot_parser.set_defaults(handler=lambda layout, args: build_snapshot(layout, full=args.full))
 
     return parser
+
+
+def without_leading_double_dash(arguments):
+    """argparse.REMAINDER keeps the `--` separating pds options from claude options."""
+    return arguments[1:] if arguments[:1] == ["--"] else arguments
 
 
 def add_project(layout, args):

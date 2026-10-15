@@ -39,9 +39,9 @@ pharo-dev-spaces/
 |---|---|
 | `setup_plain --version 140` | `curl https://get.pharo.org/64/140+vm \| bash` で plain-pharo/ を作る |
 | `prepare_dev_base` | plain をコピーし、Metacello で SIS + AgenticBrowser（+ プロジェクトの外部依存）をロードし、save & quit した後に `pharo-local/iceberg` を削除する（full ビルドと共通の後始末） |
-| `slot reset N` | `snapshots/current`（無ければ dev-base）を `slots/slotN/` にコピー |
-| `slot up N` / `slot down N` | `PHARO_SIS_PORT=808(6+N)` で headless 起動 / 停止（pid 管理） |
-| `slot claude N` | smalltalk-dev 用の設定（ポート 808(6+N)）と `mcp_others.json` をマージして mcp.json を生成し、`claude --strict-mcp-config --mcp-config slots/slotN/mcp.json` |
+| `slot N reset` | `snapshots/current`（無ければ dev-base）を `slots/slotN/` にコピー |
+| `slot N up` / `slot N down` | `PHARO_SIS_PORT=808(6+N)` で headless 起動 / 停止（pid 管理） |
+| `slot N claude` | smalltalk-dev 用の設定（ポート 808(6+N)）と `mcp_others.json` をマージして mcp.json を生成し、`claude --strict-mcp-config --mcp-config slots/slotN/mcp.json` |
 | `add_project <repoPath>` | `.project` の `srcDirectory` と `BaselineOfXxx` の名前から、`projects.json` のエントリの雛形を出力する |
 | `build_snapshot [--full]` | 下記 |
 
