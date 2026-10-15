@@ -155,17 +155,17 @@ def test_incremental_build_requires_current_snapshot(build_layout):
         build_snapshot(build_layout, build_date=BUILD_DATE)
 
 
-TONEL_BASELINE = """Class {
+TONEL_BASELINE = """Class {{
 	#name : 'BaselineOfPdsProbe',
 	#superclass : 'BaselineOf',
 	#category : 'BaselineOfPdsProbe',
 	#package : 'BaselineOfPdsProbe'
-}
+}}
 
-{ #category : 'baselines' }
+{{ #category : 'baselines' }}
 BaselineOfPdsProbe >> baseline: spec [
 	<baseline>
-	spec for: #common do: [ spec package: 'PdsProbe' ]
+	spec for: #common do: [ {packages} ]
 ]
 """
 TONEL_CLASS = """Class {{
@@ -183,38 +183,45 @@ PdsProbe >> {selector} [
 """
 
 
-def write_probe_repository(src_dir, selectors):
-    for package in ("BaselineOfPdsProbe", "PdsProbe"):
+def write_probe_repository(src_dir, selectors, extra_packages=()):
+    """PdsProbe holds `selectors`; each extra package is an empty package declared in the baseline."""
+    packages = ("PdsProbe", *extra_packages)
+    for package in ("BaselineOfPdsProbe", *packages):
         (src_dir / package).mkdir(parents=True, exist_ok=True)
         (src_dir / package / "package.st").write_text(f"Package {{ #name : '{package}' }}\n")
-    (src_dir / "BaselineOfPdsProbe" / "BaselineOfPdsProbe.class.st").write_text(TONEL_BASELINE)
+    declarations = " ".join(f"spec package: '{package}'." for package in packages)
+    (src_dir / "BaselineOfPdsProbe" / "BaselineOfPdsProbe.class.st").write_text(
+        TONEL_BASELINE.format(packages=declarations)
+    )
     methods = "".join(TONEL_METHOD.format(selector=selector) for selector in selectors)
     (src_dir / "PdsProbe" / "PdsProbe.class.st").write_text(TONEL_CLASS.format(methods=methods))
 
 
 @pytest.mark.pharo
-def test_reloading_a_baseline_applies_added_and_removed_methods(pharo_layout, tmp_path):
+def test_reloading_a_baseline_applies_changed_methods_and_baseline(pharo_layout, tmp_path):
     from pds.image_dir import copy_image
     from pds.pharo import run_pharo
 
     image_dir = tmp_path / "image"
     copy_image(pharo_layout, pharo_layout.plain_dir, image_dir)
     src_dir = tmp_path / "src"
-    result_file = tmp_path / "selectors.txt"
+    result_file = tmp_path / "result.txt"
     script = tmp_path / "load.st"
     probe_source = FetchedSource({"baseline": "PdsProbe", "groups": ["default"]}, "sha", src_dir)
 
-    def load_and_list_selectors():
+    def load_and_describe_image():
         script.write_text(
             snapshot.load_script([probe_source])
             + f"\n'{result_file}' asFileReference ensureDelete; writeStreamDo: [ :s | "
-            "s nextPutAll: ((Smalltalk at: #PdsProbe) selectors sorted joinUsing: ' ') ]."
+            "s nextPutAll: ((Smalltalk at: #PdsProbe) selectors sorted joinUsing: ' '); cr; "
+            "print: (PackageOrganizer default hasPackage: 'PdsProbe-Added') ]."
         )
         run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8091, timeout=120, save=True)
-        return result_file.read_text().split()
+        selectors, has_added_package = result_file.read_text().splitlines()
+        return selectors.split(), has_added_package == "true"
 
     write_probe_repository(src_dir, ["kept", "removed"])
-    assert load_and_list_selectors() == ["kept", "removed"]
+    assert load_and_describe_image() == (["kept", "removed"], False)
 
-    write_probe_repository(src_dir, ["kept", "added"])
-    assert load_and_list_selectors() == ["added", "kept"]
+    write_probe_repository(src_dir, ["kept", "added"], extra_packages=["PdsProbe-Added"])
+    assert load_and_describe_image() == (["added", "kept"], True)
