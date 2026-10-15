@@ -53,6 +53,18 @@ def is_slot_running(layout, slot_number):
     return slot_pid(layout, slot_number) is not None
 
 
+def slot_status(layout, slot_number):
+    """A slot is free for a new session when it is not running."""
+    pid = slot_pid(layout, slot_number)
+    return {
+        "slot": slot_number,
+        "port": slot_port(slot_number),
+        "hasImage": image_path(slot_dir(layout, slot_number)).exists(),
+        "running": pid is not None,
+        "pid": pid,
+    }
+
+
 def ensure_slot_stopped(layout, slot_number):
     if is_slot_running(layout, slot_number):
         raise RuntimeError(f"slot{slot_number} is running; run `pds slot {slot_number} down` first")

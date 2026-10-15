@@ -8,7 +8,7 @@ from pds.layout import Layout
 from pds.mcp_config import launch_claude
 from pds.projects import add_project_entry
 from pds.snapshot import build_snapshot
-from pds.slot import SLOT_NUMBERS, reset_slot, start_slot, stop_slot
+from pds.slot import SLOT_NUMBERS, reset_slot, slot_status, start_slot, stop_slot
 from pds.setup_plain import setup_plain
 
 
@@ -41,6 +41,9 @@ def build_parser():
         action_parser = slot_actions.add_parser(action, help=help_text)
         action_parser.set_defaults(handler=lambda layout, args, handler=handler: handler(layout, args.slot_number))
 
+    status_parser = slot_actions.add_parser("status", help="print whether the slot has an image and is running (JSON)")
+    status_parser.set_defaults(handler=lambda layout, args: print_json(slot_status(layout, args.slot_number)))
+
     gui_parser = slot_actions.add_parser("gui", help="start the slot with pharo-ui (interactive development)")
     gui_parser.set_defaults(handler=lambda layout, args: start_slot(layout, args.slot_number, gui=True))
 
@@ -48,6 +51,11 @@ def build_parser():
     claude_parser.add_argument("claude_arguments", nargs=argparse.REMAINDER, help="passed to claude (after --)")
     claude_parser.set_defaults(
         handler=lambda layout, args: launch_claude(layout, args.slot_number, without_leading_double_dash(args.claude_arguments))
+    )
+
+    list_slots_parser = commands.add_parser("list-slots", help="print the status of every slot (JSON)")
+    list_slots_parser.set_defaults(
+        handler=lambda layout, args: print_json([slot_status(layout, slot_number) for slot_number in SLOT_NUMBERS])
     )
 
     add_project_parser = commands.add_parser("add-project", help="print a projects.json entry derived from BaselineOf")
@@ -63,6 +71,10 @@ def build_parser():
     return parser
 
 
+def print_json(value):
+    print(json.dumps(value, indent=2))
+
+
 def without_leading_double_dash(arguments):
     """argparse.REMAINDER keeps the `--` separating pds options from claude options."""
     return arguments[1:] if arguments[:1] == ["--"] else arguments
@@ -70,7 +82,7 @@ def without_leading_double_dash(arguments):
 
 def add_project(layout, args):
     entry = project_entry(args.repository, args.groups.split(","))
-    print(json.dumps(entry, indent=2))
+    print_json(entry)
     if args.write:
         add_project_entry(layout, entry)
 

@@ -13,6 +13,7 @@ from pds.slot import (
     slot_dir,
     slot_origin_dir,
     slot_port,
+    slot_status,
     start_slot,
     stop_slot,
 )
@@ -69,6 +70,17 @@ def test_slot_with_live_pid_is_running(layout):
     write_pid(layout, 1, os.getpid())
 
     assert is_slot_running(layout, 1)
+
+
+def test_status_of_running_slot_reports_pid_and_port(layout):
+    make_image_dir(slot_dir(layout, 2))
+    write_pid(layout, 2, os.getpid())
+
+    assert slot_status(layout, 2) == {"slot": 2, "port": 8088, "hasImage": True, "running": True, "pid": os.getpid()}
+
+
+def test_status_of_slot_never_reset_is_free_without_image(layout):
+    assert slot_status(layout, 3) == {"slot": 3, "port": 8089, "hasImage": False, "running": False, "pid": None}
 
 
 def test_slot_with_stale_pid_is_not_running(layout):

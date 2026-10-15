@@ -41,6 +41,7 @@ pharo-dev-spaces/
 | `prepare_dev_base` | plain をコピーし、Metacello で SIS + AgenticBrowser（+ プロジェクトの外部依存）をロードし、save & quit した後に `pharo-local/iceberg` を削除する（full ビルドと共通の後始末） |
 | `slot N reset` | `snapshots/current`（無ければ dev-base）を `slots/slotN/` にコピー |
 | `slot N up` / `slot N down` | `PHARO_SIS_PORT=808(6+N)` で headless 起動 / 停止（pid 管理） |
+| `slot N status` / `list-slots` | スロット（`list-slots` は全スロット）のポート、イメージの有無、起動状態、pid を JSON で出力する。`running` が false のスロットが空き |
 | `slot N claude` | smalltalk-dev 用の設定（ポート 808(6+N)）と `mcp_others.json` をマージして mcp.json を生成し、`claude --strict-mcp-config --mcp-config slots/slotN/mcp.json` |
 | `add_project <repoPath>` | `.project` の `srcDirectory` と `BaselineOfXxx` の名前から、`projects.json` のエントリの雛形を出力する |
 | `build_snapshot [--full]` | 下記 |

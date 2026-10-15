@@ -24,6 +24,8 @@ uv run pds slot 2 gui                         # 同ポートで pharo-ui 起動�
 uv run pds slot 2 claude                      # slot2 に接続した MCP 設定で claude を起動（追加の引数は -- の後に）
 uv run pds slot 2 claude -- -p "/st-eval Smalltalk version"
 uv run pds slot 2 down
+uv run pds slot 2 status                      # slot2 のイメージの有無と起動状態（JSON）
+uv run pds list-slots                         # 全スロットの状態（JSON）。running が false なら空き
 ```
 
 - スロットは slot1〜3 で、ポートは 8087〜8089（8086 は単独利用のために空けておく）
