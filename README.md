@@ -2,7 +2,7 @@
 
 Disposable Pharo images and daily snapshots for AI coding agents.
 
-`pds` is a small CLI that gives each Claude Code session its own Pharo image, so 2–3 agents can work in parallel without interfering with each other. Every image has [PharoSmalltalkInteropServer (SIS)](https://github.com/mumez/PharoSmalltalkInteropServer) and AgenticBrowser loaded. At the end of the day, the `develop` branches of your projects are loaded into a tested snapshot, which becomes the starting point for the next day's slots.
+`pds` is a small CLI that gives each Claude Code session its own Pharo image, so 2–3 agents can work in parallel without interfering with each other. Every image has [PharoSmalltalkInteropServer (SIS)](https://github.com/mumez/PharoSmalltalkInteropServer) and [AgenticBrowser](https://github.com/mumez/pharo-agentic-browser) loaded. At the end of the day, the `develop` branches of your projects are loaded into a tested snapshot, which becomes the starting point for the next day's slots.
 
 Currently targets Pharo 14, Claude Code, and Linux (WSL).
 
@@ -113,5 +113,9 @@ Everything except `pds/`, `tests/`, and `tasks/` is generated and ignored by git
 uv run pytest            # unit tests
 uv run pytest -m pharo   # integration tests that launch a real Pharo (needs plain-pharo/ and dev-base/)
 ```
+
+## License
+
+MIT
 
 Past implementation plans are kept in `tasks/archive/`.
