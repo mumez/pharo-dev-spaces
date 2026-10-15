@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from pds.sources import SourceFetchError, baseline_changed, fetch_project_sources
+from pds.sources import SourceFetchError, fetch_project_sources
 
 
 def git(*arguments, cwd):
@@ -34,7 +34,7 @@ def cloned_repository(tmp_path):
 
 
 def project(repository):
-    return {"repository": str(repository), "baseline": "Pkg", "srcDir": "src", "groups": ["default"], "packages": []}
+    return {"repository": str(repository), "baseline": "Pkg", "srcDir": "src", "groups": ["default"]}
 
 
 def test_fetches_latest_origin_develop_and_extracts_src_dir(cloned_repository, tmp_path):
@@ -62,34 +62,3 @@ def test_missing_origin_develop_is_reported_with_repository(tmp_path):
     with pytest.raises(SourceFetchError, match=str(repository)):
         fetch_project_sources([project(repository)], tmp_path / "extracted")
 
-
-def commit_file(repository, relative_path, content):
-    path = repository / relative_path
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content)
-    git("add", ".", cwd=repository)
-    git("commit", "-q", "-m", f"change {relative_path}", cwd=repository)
-    return git("rev-parse", "HEAD", cwd=repository)
-
-
-@pytest.fixture
-def repository(tmp_path):
-    repository = tmp_path / "repository"
-    git("init", "-q", str(repository), cwd=tmp_path)
-    git("config", "user.email", "t@example.com", cwd=repository)
-    git("config", "user.name", "t", cwd=repository)
-    return repository
-
-
-def test_baseline_change_is_detected(repository):
-    old_sha = commit_file(repository, "src/BaselineOfPkg/BaselineOfPkg.class.st", "v1")
-    new_sha = commit_file(repository, "src/BaselineOfPkg/BaselineOfPkg.class.st", "v2")
-
-    assert baseline_changed(repository, old_sha, new_sha, "src")
-
-
-def test_package_only_change_is_not_a_baseline_change(repository):
-    old_sha = commit_file(repository, "src/BaselineOfPkg/BaselineOfPkg.class.st", "v1")
-    new_sha = commit_file(repository, "src/Pkg/Pkg.class.st", "v1")
-
-    assert not baseline_changed(repository, old_sha, new_sha, "src")

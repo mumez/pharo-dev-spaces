@@ -9,7 +9,7 @@ from datetime import date
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
 from pds.pharo import BUILD_SIS_PORT, run_pharo
 from pds.projects import read_projects
-from pds.sources import baseline_changed, fetch_project_sources
+from pds.sources import fetch_project_sources
 from pds.st_script import render_template_file
 
 BUILD_SCRIPT_FILE_NAME = "build_snapshot.st"
@@ -21,9 +21,9 @@ class SnapshotBuildError(RuntimeError):
     pass
 
 
-def full_load_script(fetched_sources):
+def load_script(fetched_sources):
     return render_template_file(
-        "load_full.st",
+        "load_baselines.st",
         PROJECTS=[
             [source.project["baseline"], f"tonel://{source.src_path}", source.project["groups"]]
             for source in fetched_sources
@@ -31,31 +31,23 @@ def full_load_script(fetched_sources):
     )
 
 
-def incremental_load_script(fetched_sources):
-    return render_template_file(
-        "load_incremental.st",
-        PACKAGE_SOURCES=[
-            [str(source.src_path), package] for source in fetched_sources for package in source.project["packages"]
-        ],
-    )
-
-
-def test_packages(projects):
+def test_packages(fetched_sources):
+    """Package directories under each srcDir; run_tests.st skips those Metacello did not load (e.g. other platforms)."""
     return [
-        package
-        for project in projects
-        for package in project["packages"]
-        if not package.startswith("BaselineOf")
+        package_dir.name
+        for source in fetched_sources
+        for package_dir in sorted(source.src_path.iterdir())
+        if package_dir.is_dir() and not package_dir.name.startswith(("BaselineOf", "."))
     ]
 
 
-def build_script(load_script, projects, build_dir):
+def build_script(fetched_sources, build_dir):
     test_script = render_template_file(
         "run_tests.st",
-        TEST_PACKAGES=test_packages(projects),
+        TEST_PACKAGES=test_packages(fetched_sources),
         RESULTS_FILE=str(build_dir / TEST_RESULTS_FILE_NAME),
     )
-    return load_script + "\n" + test_script
+    return load_script(fetched_sources) + "\n" + test_script
 
 
 def read_test_results(build_dir):
@@ -97,47 +89,24 @@ def latest_manifest_path(layout):
     return manifests[-1] if manifests else None
 
 
-def ensure_incremental_build_is_possible(previous_manifest_path, fetched_sources):
-    """New repositories and BaselineOf changes (dependencies, package structure) need `--full`."""
-    previous_shas = {}
-    if previous_manifest_path:
-        previous_repositories = json.loads(previous_manifest_path.read_text()).get("repositories", [])
-        previous_shas = {each["repository"]: each["sha"] for each in previous_repositories}
-    needing_full_build = [
-        source.project["repository"]
-        for source in fetched_sources
-        if source.project["repository"] not in previous_shas
-        or baseline_changed(
-            source.project["repository"], previous_shas[source.project["repository"]], source.sha, source.project["srcDir"]
-        )
-    ]
-    if needing_full_build:
-        raise SnapshotBuildError(
-            "new repositories or BaselineOf changes since the last snapshot; run `pds build-snapshot --full`:\n  "
-            + "\n  ".join(needing_full_build)
-        )
-
-
 def build_snapshot(layout, full=False, build_date=None):
-    """full: dev-base + Metacello baselines; incremental (default): current + TonelReader in projects.json order."""
+    """Load every baseline with Metacello onto dev-base (full) or snapshots/current (incremental, default)."""
     build_date = build_date or date.today()
     projects = read_projects(layout)
     if full:
-        mode, base, origin_dir, load_script_for = "full", "dev-base", layout.dev_base_dir, full_load_script
+        mode, base, origin_dir = "full", "dev-base", layout.dev_base_dir
     else:
         if not image_path(layout.current_snapshot_dir).exists():
             raise SnapshotBuildError("snapshots/current does not exist; run `pds build-snapshot --full` first")
         previous_manifest_path = latest_manifest_path(layout)
-        mode, origin_dir, load_script_for = "incremental", layout.current_snapshot_dir, incremental_load_script
+        mode, origin_dir = "incremental", layout.current_snapshot_dir
         base = previous_manifest_path.stem if previous_manifest_path else None
     with tempfile.TemporaryDirectory(prefix="pds-sources-") as extract_root:
         fetched_sources = fetch_project_sources(projects, extract_root)
-        if not full:
-            ensure_incremental_build_is_possible(previous_manifest_path, fetched_sources)
         with staged_replacement(layout.current_snapshot_dir, force=True) as build_dir:
             copy_image(layout, origin_dir, build_dir)
             script = build_dir / BUILD_SCRIPT_FILE_NAME
-            script.write_text(build_script(load_script_for(fetched_sources), projects, build_dir))
+            script.write_text(build_script(fetched_sources, build_dir))
             run_pharo(
                 layout, image_path(build_dir), script, port=BUILD_SIS_PORT, timeout=BUILD_TIMEOUT_SECONDS, save=True
             )

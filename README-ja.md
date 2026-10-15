@@ -13,10 +13,10 @@ uv run pds prepare-dev-base                   # plain をコピーし load_agent
 # 同等の手作業（コピー済みイメージ上）:
 #   plain-pharo/pharo Pharo.image st pds/st/load_agentic_browser.st
 uv run pds run-dev-base                       # dev-base を GUI で起動（確認用、SIS=8086）
-uv run pds add-project ~/git/Historia --write # BaselineOf から projects.json にロード順を登録
+uv run pds add-project ~/git/Historia --write # Baseline 名・srcDir・groups を projects.json に登録
 
 uv run pds build-snapshot --full              # 初回・作り直し: dev-base + Metacello(tonel://) → テスト → snapshots/current
-uv run pds build-snapshot                     # 毎日: current + TonelReader（Baseline が変わっていれば --full を案内）
+uv run pds build-snapshot                     # 毎日: current + Metacello(tonel://) → テスト → snapshots/current
 
 uv run pds slot reset 2                       # snapshots/current（無ければ dev-base）から slots/slot2 を作り直す
 uv run pds slot up 2                          # PHARO_SIS_PORT=8088 で headless 起動

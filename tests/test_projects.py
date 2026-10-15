@@ -4,7 +4,7 @@ import pytest
 
 from pds.projects import add_project_entry, read_projects
 
-ENTRY = {"repository": "/repos/a", "baseline": "A", "srcDir": "src", "groups": ["default"], "packages": ["BaselineOfA"]}
+ENTRY = {"repository": "/repos/a", "baseline": "A", "srcDir": "src", "groups": ["default"]}
 
 
 def test_read_projects_requires_projects_json(layout):
