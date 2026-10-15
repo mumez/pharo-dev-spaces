@@ -5,7 +5,7 @@ import sys
 from pds.baseline import project_entry
 from pds.dev_base import prepare_dev_base, run_dev_base
 from pds.layout import Layout
-from pds.mcp_config import launch_claude
+from pds.mcp_config import launch_claude, launch_cursor_agent
 from pds.projects import add_project_entry
 from pds.snapshot import build_snapshot
 from pds.slot import SLOT_NUMBERS, reset_slot, slot_status, start_slot, stop_slot
@@ -53,6 +53,32 @@ def build_parser():
         handler=lambda layout, args: launch_claude(layout, args.slot_number, without_leading_double_dash(args.claude_arguments))
     )
 
+    cursor_agent_parser = slot_actions.add_parser(
+        "cursor-agent", help="run Cursor Agent with MCP pointed at the slot"
+    )
+    cursor_agent_parser.add_argument(
+        "--workspace",
+        default=None,
+        help="directory used as cursor-agent --workspace and for .cursor/mcp.json (default: cwd)",
+    )
+    cursor_agent_parser.add_argument(
+        "--approve-mcps",
+        action="store_true",
+        help="pass --approve-mcps to cursor-agent (auto-approves all MCP servers Cursor loads)",
+    )
+    cursor_agent_parser.add_argument(
+        "cursor_agent_arguments", nargs=argparse.REMAINDER, help="passed to cursor-agent (after --)"
+    )
+    cursor_agent_parser.set_defaults(
+        handler=lambda layout, args: launch_cursor_agent(
+            layout,
+            args.slot_number,
+            without_leading_double_dash(args.cursor_agent_arguments),
+            workspace=args.workspace,
+            approve_mcps=args.approve_mcps,
+        )
+    )
+
     list_slots_parser = commands.add_parser("list-slots", help="print the status of every slot (JSON)")
     list_slots_parser.set_defaults(
         handler=lambda layout, args: print_json([slot_status(layout, slot_number) for slot_number in SLOT_NUMBERS])
@@ -76,7 +102,7 @@ def print_json(value):
 
 
 def without_leading_double_dash(arguments):
-    """argparse.REMAINDER keeps the `--` separating pds options from claude options."""
+    """argparse.REMAINDER keeps the `--` separating pds options from agent options."""
     return arguments[1:] if arguments[:1] == ["--"] else arguments
 
 

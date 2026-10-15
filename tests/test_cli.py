@@ -22,6 +22,50 @@ def test_slot_claude_passes_arguments_after_double_dash_to_claude(monkeypatch):
     assert launches == [(1, ["-p", "/st-eval Smalltalk version"])]
 
 
+def test_slot_cursor_agent_passes_arguments_after_double_dash(monkeypatch):
+    launches = []
+    monkeypatch.setattr(
+        cli,
+        "launch_cursor_agent",
+        lambda layout, slot_number, arguments, workspace=None, approve_mcps=False: launches.append(
+            (slot_number, arguments, workspace, approve_mcps)
+        ),
+    )
+    args = build_parser().parse_args(["slot", "2", "cursor-agent", "--", "-p", "/st-eval Smalltalk version"])
+
+    args.handler(None, args)
+
+    assert launches == [(2, ["-p", "/st-eval Smalltalk version"], None, False)]
+
+
+def test_slot_cursor_agent_passes_workspace_and_approve_mcps(monkeypatch):
+    launches = []
+    monkeypatch.setattr(
+        cli,
+        "launch_cursor_agent",
+        lambda layout, slot_number, arguments, workspace=None, approve_mcps=False: launches.append(
+            (slot_number, arguments, workspace, approve_mcps)
+        ),
+    )
+    args = build_parser().parse_args(
+        [
+            "slot",
+            "2",
+            "cursor-agent",
+            "--workspace",
+            "./repos/Stick",
+            "--approve-mcps",
+            "--",
+            "-p",
+            "fix Stick",
+        ]
+    )
+
+    args.handler(None, args)
+
+    assert launches == [(2, ["-p", "fix Stick"], "./repos/Stick", True)]
+
+
 def test_slot_number_outside_fixed_slots_is_rejected():
     with pytest.raises(SystemExit):
         build_parser().parse_args(["slot", "4", "up"])

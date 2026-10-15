@@ -2,9 +2,9 @@
 
 Disposable Pharo images and daily snapshots for AI coding agents.
 
-`pds` is a small CLI that gives each Claude Code session its own Pharo image, so 2–3 agents can work in parallel without interfering with each other. Every image has [PharoSmalltalkInteropServer (SIS)](https://github.com/mumez/PharoSmalltalkInteropServer) and [AgenticBrowser](https://github.com/mumez/pharo-agentic-browser) loaded. At the end of the day, the `develop` branches of your projects are loaded into a tested snapshot, which becomes the starting point for the next day's slots.
+`pds` is a small CLI that gives each AI coding agent session its own Pharo image, so 2–3 agents can work in parallel without interfering with each other. Every image has [PharoSmalltalkInteropServer (SIS)](https://github.com/mumez/PharoSmalltalkInteropServer) and [AgenticBrowser](https://github.com/mumez/pharo-agentic-browser) loaded. At the end of the day, the `develop` branches of your projects are loaded into a tested snapshot, which becomes the starting point for the next day's slots.
 
-Currently targets Pharo 14, Claude Code, and Linux (WSL).
+Currently targets Pharo 14, Claude Code, Cursor Agent (CLI), and Linux (WSL).
 
 ## Concepts
 
@@ -78,10 +78,18 @@ uv run pds slot 2 up                  # start headless (SIS on 8088)
 uv run pds slot 2 gui                 # or start with the GUI (pharo-ui) on the same ports
 uv run pds slot 2 claude              # run Claude Code with MCP pointed at slot2
 uv run pds slot 2 claude -- -p "/st-eval Smalltalk version"   # arguments after -- go to claude
+uv run pds slot 2 cursor-agent        # run Cursor Agent with MCP pointed at slot2
+uv run pds slot 2 cursor-agent -- -p "/st-eval Smalltalk version"   # arguments after -- go to cursor-agent
+uv run pds slot 2 cursor-agent --workspace ./repos/Stick -- -p "fix Stick"
+uv run pds slot 2 cursor-agent --approve-mcps --workspace ./repos/Stick -- -p "fix Stick"
 uv run pds slot 2 down                # stop
 ```
 
-`slot N claude` writes `slots/slotN/mcp.json` and runs `claude --strict-mcp-config --mcp-config slots/slotN/mcp.json`. The config holds the smalltalk-dev plugin's MCP servers (`smalltalk-interop` pointed at the slot's SIS port, and `smalltalk-validator`), merged with any servers you define in `mcp_others.json`:
+`slot N claude` writes `slots/slotN/mcp.json` and runs `claude --strict-mcp-config --mcp-config slots/slotN/mcp.json`.
+
+`slot N cursor-agent [--workspace DIR]` runs `cursor-agent --workspace DIR` (`DIR` defaults to cwd). It merges `smalltalk-interop` / `smalltalk-validator` (plus anything in `mcp_others.json`) into `DIR/.cursor/mcp.json` without dropping other existing servers; on name clashes, `mcp_others.json` and then smalltalk-dev win. `smalltalk-interop` uses `"SIS_PORT": "${env:SIS_PORT}"` (Cursor expands `${env:NAME}` but not `${env:NAME:-default}`); `pds` exports `SIS_PORT=8086+N` on launch and warns when it changes the file. Outside pds, set `SIS_PORT` yourself or expect the server default 8086. `--approve-mcps` is off by default because it auto-approves every MCP server Cursor loads, not only smalltalk; pass `--approve-mcps` to opt in. Arguments after `--` go to `cursor-agent`. Claude still gets a per-slot `slots/slotN/mcp.json` with a concrete port.
+
+Both configs hold the smalltalk-dev plugin's MCP servers (`smalltalk-interop` pointed at the slot's SIS port, and `smalltalk-validator`), merged with any servers you define in `mcp_others.json`:
 
 ```json
 { "mcpServers": { "my-server": { "command": "...", "args": ["..."] } } }
