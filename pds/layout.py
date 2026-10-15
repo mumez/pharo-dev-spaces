@@ -7,7 +7,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 @dataclass(frozen=True)
 class Layout:
-    """Directory layout of a pharo-dev-spaces root (see docs/ideas/pharo-dev-spaces.md)."""
+    """Directory layout of a pharo-dev-spaces root (see README.md)."""
 
     root: Path
 

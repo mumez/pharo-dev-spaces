@@ -44,7 +44,7 @@ T5 と T6 は Pharo に依存しないので、T2〜T4 と並行して進めら�
 - [x] ユニットテストが通る
 - [x] slot1〜3 を同時に起動し、それぞれのポートの SIS が別イメージとして応答する
 - [x] 前提「sources のシンボリックリンク」と「`#port` が永続化されない」を確認済み
-- [ ] 人間によるレビュー
+- [x] 人間によるレビュー
 
 ### Phase 2: Claude 接続とスナップショットの部品
 - [x] Task 4: `slot claude`（mcp.json の生成とマージ）
@@ -52,9 +52,9 @@ T5 と T6 は Pharo に依存しないので、T2〜T4 と並行して進めら�
 - [x] Task 6: ソース取得（fetch → SHA → git archive）
 
 ### Checkpoint B
-- [ ] `pds slot claude 2` で起動した Claude Code から、slot2 のイメージだけを操作できる
-- [ ] Historia の projects.json エントリを `add-project` で生成できる
-- [ ] 人間によるレビュー
+- [x] `pds slot claude 2` で起動した Claude Code から、slot2 のイメージだけを操作できる
+- [x] Historia の projects.json エントリを `add-project` で生成できる
+- [x] 人間によるレビュー
 
 ### Phase 3: スナップショットビルド
 - [x] Task 7: `build-snapshot --full`（end-to-end：テスト → 確定 → manifest → archive）
@@ -62,10 +62,10 @@ T5 と T6 は Pharo に依存しないので、T2〜T4 と並行して進めら�
 - [x] Task 9: incremental で Baseline の変化を検知して中断
 
 ### Checkpoint C（完了）
-- [ ] Historia で full → incremental → slot reset → slot up の一連の流れが通る
-- [ ] Key Assumptions のうち、ロード順・メソッド削除・所要時間を確認して one-pager に反映済み
-- [ ] README-ja.md を実装に合わせて更新
-- [ ] 人間によるレビュー
+- [x] Historia で full → incremental → slot reset → slot up の一連の流れが通る
+- [x] Key Assumptions のうち、ロード順・メソッド削除・所要時間を確認して one-pager に反映済み
+- [x] README-ja.md を実装に合わせて更新
+- [x] 人間によるレビュー
 
 ## Risks and Mitigations
 

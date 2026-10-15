@@ -140,10 +140,10 @@
 ---
 
 ### Checkpoint B
-- [ ] `uv run pytest` が通る
-- [ ] Claude Code から slot2 のイメージだけを操作できることを確認する
-- [ ] Historia の projects.json を作成する
-- [ ] 人間によるレビュー
+- [x] `uv run pytest` が通る
+- [x] Claude Code から slot2 のイメージだけを操作できることを確認する
+- [x] Historia の projects.json を作成する
+- [x] 人間によるレビュー
 
 ---
 
@@ -213,4 +213,4 @@
 - [x] Historia で full → incremental → `slot reset 1` → `slot up 1` が通る
 - [x] Key Assumptions（ロード順、メソッド削除、所要時間）の結果を one-pager に反映する
 - [x] README-ja.md を実装に合わせて更新する
-- [ ] 人間によるレビュー
+- [x] 人間によるレビュー

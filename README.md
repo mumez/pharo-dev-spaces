@@ -105,7 +105,7 @@ pharo-dev-spaces/
   slots/slot{1,2,3}/    # Pharo.image/.changes, mcp.json, pharo.pid, pharo.log
 ```
 
-Everything except `pds/`, `tests/`, and `docs/` is generated and ignored by git. Set `PDS_ROOT` to use a different root directory.
+Everything except `pds/`, `tests/`, and `tasks/` is generated and ignored by git. Set `PDS_ROOT` to use a different root directory.
 
 ## Development
 
@@ -114,4 +114,4 @@ uv run pytest            # unit tests
 uv run pytest -m pharo   # integration tests that launch a real Pharo (needs plain-pharo/ and dev-base/)
 ```
 
-The design is described in `docs/ideas/pharo-dev-spaces.md`, and the implementation plan in `tasks/plan.md`.
+Past implementation plans are kept in `tasks/archive/`.
