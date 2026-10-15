@@ -80,13 +80,14 @@ uv run pds slot 2 claude              # run Claude Code with MCP pointed at slot
 uv run pds slot 2 claude -- -p "/st-eval Smalltalk version"   # arguments after -- go to claude
 uv run pds slot 2 cursor-agent        # run Cursor Agent with MCP pointed at slot2
 uv run pds slot 2 cursor-agent -- -p "/st-eval Smalltalk version"   # arguments after -- go to cursor-agent
-uv run pds slot 2 cursor-agent --project ./repos/Stick -- -p "fix Stick"
+uv run pds slot 2 cursor-agent --workspace ./repos/Stick -- -p "fix Stick"
+uv run pds slot 2 cursor-agent --approve-mcps --workspace ./repos/Stick -- -p "fix Stick"
 uv run pds slot 2 down                # stop
 ```
 
 `slot N claude` writes `slots/slotN/mcp.json` and runs `claude --strict-mcp-config --mcp-config slots/slotN/mcp.json`.
 
-`slot N cursor-agent [--project DIR]` runs `cursor-agent --workspace DIR --approve-mcps` (`DIR` defaults to cwd). It merges `smalltalk-interop` / `smalltalk-validator` (plus anything in `mcp_others.json`) into `DIR/.cursor/mcp.json` without dropping existing servers. `smalltalk-interop` uses `"SIS_PORT": "${env:SIS_PORT}"` (Cursor expands `${env:NAME}`); `pds` sets `SIS_PORT=8086+N` when launching, so concurrent slots can share the same project tree. Claude still gets a per-slot `slots/slotN/mcp.json` with a concrete port. Arguments after `--` go to `cursor-agent`.
+`slot N cursor-agent [--workspace DIR]` runs `cursor-agent --workspace DIR` (`DIR` defaults to cwd). It merges `smalltalk-interop` / `smalltalk-validator` (plus anything in `mcp_others.json`) into `DIR/.cursor/mcp.json` without dropping other existing servers; on name clashes, `mcp_others.json` and then smalltalk-dev win. `smalltalk-interop` uses `"SIS_PORT": "${env:SIS_PORT}"` (Cursor expands `${env:NAME}` but not `${env:NAME:-default}`); `pds` exports `SIS_PORT=8086+N` on launch and warns when it changes the file. Outside pds, set `SIS_PORT` yourself or expect the server default 8086. `--approve-mcps` is off by default because it auto-approves every MCP server Cursor loads, not only smalltalk; pass `--approve-mcps` to opt in. Arguments after `--` go to `cursor-agent`. Claude still gets a per-slot `slots/slotN/mcp.json` with a concrete port.
 
 Both configs hold the smalltalk-dev plugin's MCP servers (`smalltalk-interop` pointed at the slot's SIS port, and `smalltalk-validator`), merged with any servers you define in `mcp_others.json`:
 

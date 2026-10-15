@@ -57,9 +57,14 @@ def build_parser():
         "cursor-agent", help="run Cursor Agent with MCP pointed at the slot"
     )
     cursor_agent_parser.add_argument(
-        "--project",
+        "--workspace",
         default=None,
         help="directory used as cursor-agent --workspace and for .cursor/mcp.json (default: cwd)",
+    )
+    cursor_agent_parser.add_argument(
+        "--approve-mcps",
+        action="store_true",
+        help="pass --approve-mcps to cursor-agent (auto-approves all MCP servers Cursor loads)",
     )
     cursor_agent_parser.add_argument(
         "cursor_agent_arguments", nargs=argparse.REMAINDER, help="passed to cursor-agent (after --)"
@@ -69,7 +74,8 @@ def build_parser():
             layout,
             args.slot_number,
             without_leading_double_dash(args.cursor_agent_arguments),
-            project=args.project,
+            workspace=args.workspace,
+            approve_mcps=args.approve_mcps,
         )
     )
 
