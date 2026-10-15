@@ -86,14 +86,7 @@ uv run pds slot 2 down                # stop
 
 `slot N claude` writes `slots/slotN/mcp.json` and runs `claude --strict-mcp-config --mcp-config slots/slotN/mcp.json`.
 
-`slot N cursor-agent [--project DIR]` picks a Cursor `--workspace` and points MCP at the slot:
-
-- If `DIR` (default: cwd) is its own git root and not this pds root (e.g. `repos/Stick`), that directory becomes `--workspace` and gets `.cursor/mcp.json`.
-- Otherwise Cursor would resolve up to an enclosing repo and ignore a nested `.cursor/mcp.json`, so pds uses `~/.cache/pharo-dev-spaces/slotN` as `--workspace` and passes `--add-dir DIR`.
-
-The Cursor `.cursor/mcp.json` is merged (not replaced): existing servers stay, and pds only overlays `smalltalk-interop` / `smalltalk-validator` (plus anything in `mcp_others.json`). `smalltalk-interop` uses `"SIS_PORT": "${env:SIS_PORT}"` (Cursor expands `${env:NAME}`). `pds` sets `SIS_PORT=8086+N` when launching, so two agents can share the same project tree without fighting over a concrete port in the file. Claude still gets a per-slot `slots/slotN/mcp.json` with a concrete port.
-
-`--approve-mcps` is always set. Arguments after `--` go to `cursor-agent`.
+`slot N cursor-agent [--project DIR]` runs `cursor-agent --workspace DIR --approve-mcps` (`DIR` defaults to cwd). It merges `smalltalk-interop` / `smalltalk-validator` (plus anything in `mcp_others.json`) into `DIR/.cursor/mcp.json` without dropping existing servers. `smalltalk-interop` uses `"SIS_PORT": "${env:SIS_PORT}"` (Cursor expands `${env:NAME}`); `pds` sets `SIS_PORT=8086+N` when launching, so concurrent slots can share the same project tree. Claude still gets a per-slot `slots/slotN/mcp.json` with a concrete port. Arguments after `--` go to `cursor-agent`.
 
 Both configs hold the smalltalk-dev plugin's MCP servers (`smalltalk-interop` pointed at the slot's SIS port, and `smalltalk-validator`), merged with any servers you define in `mcp_others.json`:
 

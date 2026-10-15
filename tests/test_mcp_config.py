@@ -1,17 +1,15 @@
 import json
-import subprocess
 
 from pds import mcp_config
 from pds.mcp_config import (
     claude_command,
     cursor_agent_command,
-    cursor_agent_cache_workspace_dir,
     cursor_mcp_config,
+    cursor_project_dir,
     launch_claude,
     launch_cursor_agent,
-    resolve_cursor_agent_paths,
     slot_mcp_config,
-    write_slot_cursor_mcp_config,
+    write_cursor_mcp_config,
     write_slot_mcp_config,
 )
 from pds.slot import slot_dir
@@ -48,8 +46,6 @@ def test_cursor_mcp_config_merges_into_existing_servers_without_dropping_them(la
 
 
 def test_write_cursor_mcp_config_preserves_existing_project_servers(layout, tmp_path):
-    from pds.mcp_config import write_cursor_mcp_config
-
     workspace = tmp_path / "Stick"
     path = workspace / ".cursor" / "mcp.json"
     path.parent.mkdir(parents=True)
@@ -86,16 +82,6 @@ def test_write_slot_mcp_config_writes_into_slot_dir(layout):
     assert json.loads(path.read_text()) == slot_mcp_config(layout, 3)
 
 
-def test_write_slot_cursor_mcp_config_writes_outside_the_git_tree(layout, monkeypatch, tmp_path):
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-
-    path = write_slot_cursor_mcp_config(layout, 2)
-
-    assert path == tmp_path / "cache" / "pharo-dev-spaces" / "slot2" / ".cursor" / "mcp.json"
-    assert json.loads(path.read_text()) == cursor_mcp_config(layout)
-    assert path != slot_dir(layout, 2) / ".cursor" / "mcp.json"
-
-
 def test_claude_command_uses_only_the_slot_mcp_config(tmp_path):
     command = claude_command(tmp_path / "mcp.json", ["--model", "opus"])
 
@@ -104,69 +90,33 @@ def test_claude_command_uses_only_the_slot_mcp_config(tmp_path):
     ]
 
 
-def test_cursor_agent_command_uses_slot_workspace_and_approves_mcps(tmp_path):
-    slot_workspace = tmp_path / "slot2"
-    project = tmp_path / "project"
-    slot_workspace.mkdir()
+def test_cursor_agent_command_uses_project_as_workspace(tmp_path):
+    project = tmp_path / "Stick"
     project.mkdir()
 
-    command = cursor_agent_command(slot_workspace, ["-p", "/st-eval Smalltalk version"], add_dir=project)
+    command = cursor_agent_command(project, ["-p", "/st-eval Smalltalk version"])
 
     assert command == [
         "cursor-agent",
         "--workspace",
-        str(slot_workspace),
-        "--approve-mcps",
-        "--add-dir",
         str(project),
+        "--approve-mcps",
         "-p",
         "/st-eval Smalltalk version",
     ]
 
 
-def test_cursor_agent_command_skips_add_dir_when_it_is_the_workspace(tmp_path):
-    slot_workspace = tmp_path / "slot2"
-    slot_workspace.mkdir()
+def test_cursor_project_dir_defaults_to_cwd(monkeypatch, tmp_path):
+    monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(tmp_path))
 
-    command = cursor_agent_command(slot_workspace, [], add_dir=slot_workspace)
-
-    assert command == ["cursor-agent", "--workspace", str(slot_workspace), "--approve-mcps"]
+    assert cursor_project_dir() == tmp_path.resolve()
 
 
-def init_git_repo(path):
-    path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
+def test_cursor_project_dir_rejects_missing_directory(tmp_path):
+    import pytest
 
-
-def test_resolve_uses_standalone_git_root_as_workspace(layout, tmp_path):
-    stick = tmp_path / "Stick"
-    init_git_repo(stick)
-
-    workspace, add_dir = resolve_cursor_agent_paths(layout, 2, project=stick)
-
-    assert workspace == stick.resolve()
-    assert add_dir is None
-
-
-def test_resolve_uses_cache_when_project_is_inside_another_repo(layout, monkeypatch, tmp_path):
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    nested = layout.root / "nested-project"
-    nested.mkdir()
-
-    workspace, add_dir = resolve_cursor_agent_paths(layout, 2, project=nested)
-
-    assert workspace == cursor_agent_cache_workspace_dir(2)
-    assert add_dir == nested.resolve()
-
-
-def test_resolve_uses_cache_for_the_pds_root_itself(layout, monkeypatch, tmp_path):
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
-    init_git_repo(layout.root)
-
-    workspace, add_dir = resolve_cursor_agent_paths(layout, 1, project=layout.root)
-
-    assert workspace == cursor_agent_cache_workspace_dir(1)
-    assert add_dir == layout.root.resolve()
+    with pytest.raises(FileNotFoundError, match="project directory does not exist"):
+        cursor_project_dir(tmp_path / "missing")
 
 
 def test_launch_claude_warns_when_slot_is_not_running(layout, monkeypatch, capsys):
@@ -179,26 +129,24 @@ def test_launch_claude_warns_when_slot_is_not_running(layout, monkeypatch, capsy
     assert executed[0][:2] == ["claude", "--strict-mcp-config"]
 
 
-def test_launch_cursor_agent_defaults_to_cache_workspace_for_cwd_inside_pds(layout, monkeypatch, capsys, tmp_path):
+def test_launch_cursor_agent_defaults_project_to_cwd(layout, monkeypatch, capsys, tmp_path):
     executed = []
-    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    project = tmp_path / "cwd-project"
+    project.mkdir()
     monkeypatch.delenv("SIS_PORT", raising=False)
     monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
-    monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(layout.root))
+    monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(project))
 
     launch_cursor_agent(layout, 2, ["-p", "/st-eval Smalltalk version"])
 
-    workspace = cursor_agent_cache_workspace_dir(2)
     assert "pds slot 2 up" in capsys.readouterr().err
-    assert json.loads((workspace / ".cursor" / "mcp.json").read_text()) == cursor_mcp_config(layout)
+    assert json.loads((project / ".cursor" / "mcp.json").read_text()) == cursor_mcp_config(layout)
     assert mcp_config.os.environ["SIS_PORT"] == "8088"
     assert executed[0] == [
         "cursor-agent",
         "--workspace",
-        str(workspace),
+        str(project.resolve()),
         "--approve-mcps",
-        "--add-dir",
-        str(layout.root),
         "-p",
         "/st-eval Smalltalk version",
     ]
@@ -207,7 +155,7 @@ def test_launch_cursor_agent_defaults_to_cache_workspace_for_cwd_inside_pds(layo
 def test_launch_cursor_agent_with_project_writes_shared_env_based_mcp(layout, monkeypatch, capsys, tmp_path):
     executed = []
     stick = tmp_path / "Stick"
-    init_git_repo(stick)
+    stick.mkdir()
     monkeypatch.delenv("SIS_PORT", raising=False)
     monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
 

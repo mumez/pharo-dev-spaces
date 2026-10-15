@@ -59,7 +59,7 @@ def build_parser():
     cursor_agent_parser.add_argument(
         "--project",
         default=None,
-        help="directory the agent should work in (default: cwd); own git roots become --workspace",
+        help="directory used as cursor-agent --workspace and for .cursor/mcp.json (default: cwd)",
     )
     cursor_agent_parser.add_argument(
         "cursor_agent_arguments", nargs=argparse.REMAINDER, help="passed to cursor-agent (after --)"
