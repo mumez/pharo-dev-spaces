@@ -60,7 +60,8 @@ def test_full_build_loads_baselines_with_metacello_onto_dev_base(build_layout, m
     assert runs[0]["image"] == "dev-base"
     assert "baseline: (each at: 1)" in runs[0]["script"]
     assert "#( #( 'Historia' 'tonel://" in runs[0]["script"]
-    assert "#( 'default' ) ) ) do:" in runs[0]["script"]
+    assert "#( 'default' ) ) )." in runs[0]["script"]
+    assert "onConflict: preferLoadedLocalDependency" in runs[0]["script"]
 
 
 def test_build_tests_package_directories_of_src_dir_except_baseline(build_layout, monkeypatch):
