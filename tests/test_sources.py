@@ -61,4 +61,3 @@ def test_missing_origin_develop_is_reported_with_repository(tmp_path):
 
     with pytest.raises(SourceFetchError, match=str(repository)):
         fetch_project_sources([project(repository)], tmp_path / "extracted")
-

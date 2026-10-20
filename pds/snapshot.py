@@ -4,7 +4,7 @@ run their tests, and promote the result to snapshots/current only when everythin
 import json
 import tarfile
 import tempfile
-from datetime import date
+from datetime import datetime
 
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
 from pds.pharo import BUILD_SIS_PORT, run_pharo
@@ -63,9 +63,11 @@ def read_test_results(build_dir):
     return test_results
 
 
-def write_manifest(layout, build_date, mode, base, fetched_sources, test_results):
+def write_manifest(layout, built_at, mode, base, fetched_sources, test_results):
+    build_date = built_at.date()
     manifest = {
         "date": build_date.isoformat(),
+        "builtAt": built_at.isoformat(timespec="seconds"),
         "mode": mode,
         "base": base,
         "repositories": [
@@ -89,9 +91,9 @@ def latest_manifest_path(layout):
     return manifests[-1] if manifests else None
 
 
-def build_snapshot(layout, full=False, build_date=None):
+def build_snapshot(layout, full=False, built_at=None):
     """Load every baseline with Metacello onto dev-base (full) or snapshots/current (incremental, default)."""
-    build_date = build_date or date.today()
+    built_at = built_at or datetime.now()
     projects = read_projects(layout)
     if full:
         mode, base, origin_dir = "full", "dev-base", layout.dev_base_dir
@@ -113,5 +115,5 @@ def build_snapshot(layout, full=False, build_date=None):
             script.unlink()
             test_results = read_test_results(build_dir)
             remove_iceberg_cache(build_dir)
-    write_manifest(layout, build_date, mode, base, fetched_sources, test_results)
-    archive_current_snapshot(layout, build_date)
+    write_manifest(layout, built_at, mode, base, fetched_sources, test_results)
+    archive_current_snapshot(layout, built_at.date())

@@ -96,7 +96,7 @@ def test_run_pharo_executes_script_in_real_image(pharo_layout, tmp_path):
     script = tmp_path / "probe.st"
     script.write_text(
         f"'{result_file}' asFileReference writeStreamDo: [ :s | s nextPutAll: "
-        "'{\"answer\": ', (1 + 1) printString, ', \"port\": \"', "
+        '\'{"answer": \', (1 + 1) printString, \', "port": "\', '
         "(OSEnvironment current at: 'PHARO_SIS_PORT'), '\"}' ]."
     )
 

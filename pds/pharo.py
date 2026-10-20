@@ -58,7 +58,7 @@ def run_pharo(layout, image, script, port, timeout, save=False):
     """Run an .st script headless and wait for the image to quit."""
     command = script_command(layout, image, script, save=save)
     try:
-        completed = subprocess.run(command, env=pharo_environment(port), timeout=timeout)
+        completed = subprocess.run(command, check=False, env=pharo_environment(port), timeout=timeout)
     except subprocess.TimeoutExpired as timeout_error:
         raise PharoRunError(f"{script} timed out after {timeout}s") from timeout_error
     if completed.returncode != 0:

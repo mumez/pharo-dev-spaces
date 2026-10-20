@@ -1,6 +1,6 @@
 import json
 import tarfile
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -11,7 +11,7 @@ from pds.snapshot import SnapshotBuildError, build_snapshot
 from pds.sources import FetchedSource
 from tests.test_image_dir import make_image_dir
 
-BUILD_DATE = date(2026, 10, 13)
+BUILT_AT = datetime(2026, 10, 13, 9, 30, 15)
 PROJECT = {
     "repository": "/repos/Historia",
     "baseline": "Historia",
@@ -55,7 +55,7 @@ def test_full_build_loads_baselines_with_metacello_onto_dev_base(build_layout, m
     runs = []
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED, runs))
 
-    build_snapshot(build_layout, full=True, build_date=BUILD_DATE)
+    build_snapshot(build_layout, full=True, built_at=BUILT_AT)
 
     assert runs[0]["image"] == "dev-base"
     assert "baseline: (each at: 1)" in runs[0]["script"]
@@ -68,7 +68,7 @@ def test_build_tests_package_directories_of_src_dir_except_baseline(build_layout
     runs = []
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED, runs))
 
-    build_snapshot(build_layout, full=True, build_date=BUILD_DATE)
+    build_snapshot(build_layout, full=True, built_at=BUILT_AT)
 
     assert "#( 'Historia-Core' 'Historia-Tests' ) do: [ :packageName |" in runs[0]["script"]
 
@@ -76,7 +76,7 @@ def test_build_tests_package_directories_of_src_dir_except_baseline(build_layout
 def test_successful_build_replaces_current_snapshot(build_layout, monkeypatch):
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
 
-    build_snapshot(build_layout, full=True, build_date=BUILD_DATE)
+    build_snapshot(build_layout, full=True, built_at=BUILT_AT)
 
     current_dir = build_layout.current_snapshot_dir
     assert image_path(current_dir).exists()
@@ -88,11 +88,12 @@ def test_successful_build_replaces_current_snapshot(build_layout, monkeypatch):
 def test_successful_build_writes_manifest(build_layout, monkeypatch):
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
 
-    build_snapshot(build_layout, full=True, build_date=BUILD_DATE)
+    build_snapshot(build_layout, full=True, built_at=BUILT_AT)
 
     manifest = json.loads((build_layout.snapshots_dir / "2026-10-13.json").read_text())
     assert manifest == {
         "date": "2026-10-13",
+        "builtAt": "2026-10-13T09:30:15",
         "mode": "full",
         "base": "dev-base",
         "repositories": [{"repository": "/repos/Historia", "baseline": "Historia", "sha": "abc123"}],
@@ -103,7 +104,7 @@ def test_successful_build_writes_manifest(build_layout, monkeypatch):
 def test_successful_build_archives_snapshot_image(build_layout, monkeypatch):
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
 
-    build_snapshot(build_layout, full=True, build_date=BUILD_DATE)
+    build_snapshot(build_layout, full=True, built_at=BUILT_AT)
 
     with tarfile.open(build_layout.archives_dir / "2026-10-13.tar.gz") as archive:
         assert "Pharo.image" in archive.getnames()
@@ -116,7 +117,7 @@ def test_failing_tests_keep_previous_snapshot(build_layout, monkeypatch):
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(failed))
 
     with pytest.raises(SnapshotBuildError, match="HistoriaTest>>#testA"):
-        build_snapshot(build_layout, full=True, build_date=BUILD_DATE)
+        build_snapshot(build_layout, full=True, built_at=BUILT_AT)
 
     assert (build_layout.current_snapshot_dir / "Pharo.image").read_text() == "previous"
     assert not (build_layout.snapshots_dir / "2026-10-13.json").exists()
@@ -134,7 +135,7 @@ def test_incremental_build_loads_baselines_with_metacello_onto_current_snapshot(
     runs = []
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED, runs))
 
-    build_snapshot(build_layout, build_date=BUILD_DATE)
+    build_snapshot(build_layout, built_at=BUILT_AT)
 
     assert runs[0]["image"] == "current"
     assert "#( #( 'Historia' 'tonel://" in runs[0]["script"]
@@ -144,7 +145,7 @@ def test_incremental_manifest_records_previous_snapshot_as_base(build_layout, mo
     make_current_snapshot(build_layout, "2026-10-12")
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
 
-    build_snapshot(build_layout, build_date=BUILD_DATE)
+    build_snapshot(build_layout, built_at=BUILT_AT)
 
     manifest = json.loads((build_layout.snapshots_dir / "2026-10-13.json").read_text())
     assert manifest["mode"] == "incremental"
@@ -153,7 +154,7 @@ def test_incremental_manifest_records_previous_snapshot_as_base(build_layout, mo
 
 def test_incremental_build_requires_current_snapshot(build_layout):
     with pytest.raises(SnapshotBuildError, match="--full"):
-        build_snapshot(build_layout, build_date=BUILD_DATE)
+        build_snapshot(build_layout, built_at=BUILT_AT)
 
 
 TONEL_BASELINE = """Class {{

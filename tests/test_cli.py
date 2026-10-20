@@ -14,7 +14,9 @@ def test_slot_number_comes_before_the_slot_action():
 
 def test_slot_claude_passes_arguments_after_double_dash_to_claude(monkeypatch):
     launches = []
-    monkeypatch.setattr(cli, "launch_claude", lambda layout, slot_number, arguments: launches.append((slot_number, arguments)))
+    monkeypatch.setattr(
+        cli, "launch_claude", lambda layout, slot_number, arguments: launches.append((slot_number, arguments))
+    )
     args = build_parser().parse_args(["slot", "1", "claude", "--", "-p", "/st-eval Smalltalk version"])
 
     args.handler(None, args)

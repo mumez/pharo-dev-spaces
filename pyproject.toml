@@ -21,3 +21,6 @@ packages = ["pds"]
 [tool.pytest.ini_options]
 addopts = "-m 'not pharo'"
 markers = ["pharo: integration tests that launch a real Pharo VM (run with -m pharo)"]
+
+[tool.ruff]
+line-length = 120

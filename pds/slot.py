@@ -1,5 +1,6 @@
 """Fixed, disposable slots (slots/slot1..3) derived from the current snapshot."""
 
+import json
 import os
 import signal
 import subprocess
@@ -7,10 +8,12 @@ import time
 
 from pds.image_dir import copy_image, image_path, staged_replacement
 from pds.pharo import STANDALONE_SIS_PORT, keep_alive_command, pharo_environment, pharo_ui_command
+from pds.snapshot import latest_manifest_path
 
 SLOT_NUMBERS = (1, 2, 3)
 SLOT_BASE_PORT = STANDALONE_SIS_PORT  # stays free for a standalone image; slot N listens on 8086 + N
 STOP_TIMEOUT_SECONDS = 10
+ORIGIN_FILE_NAME = "origin.json"
 
 
 def slot_port(slot_number):
@@ -33,6 +36,23 @@ def slot_origin_dir(layout):
         if image_path(origin_dir).exists():
             return origin_dir
     raise FileNotFoundError("neither snapshots/current nor dev-base exists; run `pds prepare-dev-base` first")
+
+
+def slot_origin(layout, origin_dir):
+    """Where a slot image comes from: snapshots/current with its manifest date and build time, or dev-base."""
+    if origin_dir == layout.current_snapshot_dir:
+        manifest_path = latest_manifest_path(layout)
+        if manifest_path:
+            built_at = json.loads(manifest_path.read_text()).get("builtAt")  # absent in older manifests
+            return {"source": "snapshots/current", "snapshot": manifest_path.stem, "builtAt": built_at}
+        return {"source": "snapshots/current", "snapshot": None, "builtAt": None}
+    return {"source": "dev-base", "snapshot": None, "builtAt": None}
+
+
+def read_slot_origin(layout, slot_number):
+    """The origin recorded at the last reset, or None for a slot reset before origins were recorded."""
+    origin_file = slot_dir(layout, slot_number) / ORIGIN_FILE_NAME
+    return json.loads(origin_file.read_text()) if origin_file.exists() else None
 
 
 def slot_pid(layout, slot_number):
@@ -62,6 +82,7 @@ def slot_status(layout, slot_number):
         "hasImage": image_path(slot_dir(layout, slot_number)).exists(),
         "running": pid is not None,
         "pid": pid,
+        "origin": read_slot_origin(layout, slot_number),
     }
 
 
@@ -73,7 +94,9 @@ def ensure_slot_stopped(layout, slot_number):
 def reset_slot(layout, slot_number):
     ensure_slot_stopped(layout, slot_number)
     with staged_replacement(slot_dir(layout, slot_number), force=True) as staging_dir:
-        copy_image(layout, slot_origin_dir(layout), staging_dir)
+        origin_dir = slot_origin_dir(layout)
+        copy_image(layout, origin_dir, staging_dir)
+        (staging_dir / ORIGIN_FILE_NAME).write_text(json.dumps(slot_origin(layout, origin_dir), indent=2) + "\n")
 
 
 def start_slot(layout, slot_number, gui=False):
