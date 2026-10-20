@@ -21,7 +21,7 @@ class FetchedSource:
 
 
 def git(repository, *arguments):
-    completed = subprocess.run(["git", "-C", str(repository), *arguments], capture_output=True)
+    completed = subprocess.run(["git", "-C", str(repository), *arguments], check=False, capture_output=True)
     if completed.returncode != 0:
         raise SourceFetchError(f"{repository}: git {' '.join(arguments)} failed: {completed.stderr.decode().strip()}")
     return completed.stdout
@@ -47,4 +47,3 @@ def fetch_project_sources(projects, extract_root):
         src_path = extract_src_dir(repository, sha, project["srcDir"], Path(extract_root) / Path(repository).name)
         fetched_sources.append(FetchedSource(project, sha, src_path))
     return fetched_sources
-

@@ -7,9 +7,9 @@ from pds.dev_base import prepare_dev_base, run_dev_base
 from pds.layout import Layout
 from pds.mcp_config import launch_claude, launch_cursor_agent
 from pds.projects import add_project_entry
-from pds.snapshot import build_snapshot
-from pds.slot import SLOT_NUMBERS, reset_slot, slot_status, start_slot, stop_slot
 from pds.setup_plain import setup_plain
+from pds.slot import SLOT_NUMBERS, reset_slot, slot_status, start_slot, stop_slot
+from pds.snapshot import build_snapshot
 
 
 def build_parser():
@@ -50,12 +50,12 @@ def build_parser():
     claude_parser = slot_actions.add_parser("claude", help="run Claude Code with MCP pointed at the slot")
     claude_parser.add_argument("claude_arguments", nargs=argparse.REMAINDER, help="passed to claude (after --)")
     claude_parser.set_defaults(
-        handler=lambda layout, args: launch_claude(layout, args.slot_number, without_leading_double_dash(args.claude_arguments))
+        handler=lambda layout, args: launch_claude(
+            layout, args.slot_number, without_leading_double_dash(args.claude_arguments)
+        )
     )
 
-    cursor_agent_parser = slot_actions.add_parser(
-        "cursor-agent", help="run Cursor Agent with MCP pointed at the slot"
-    )
+    cursor_agent_parser = slot_actions.add_parser("cursor-agent", help="run Cursor Agent with MCP pointed at the slot")
     cursor_agent_parser.add_argument(
         "--workspace",
         default=None,
@@ -86,12 +86,16 @@ def build_parser():
 
     add_project_parser = commands.add_parser("add-project", help="print a projects.json entry derived from BaselineOf")
     add_project_parser.add_argument("repository", help="path of the git repository")
-    add_project_parser.add_argument("--groups", default="default", help="comma-separated Metacello groups (default: default)")
+    add_project_parser.add_argument(
+        "--groups", default="default", help="comma-separated Metacello groups (default: default)"
+    )
     add_project_parser.add_argument("--write", action="store_true", help="append the entry to projects.json")
     add_project_parser.set_defaults(handler=add_project)
 
     build_snapshot_parser = commands.add_parser("build-snapshot", help="build snapshots/current from origin/develop")
-    build_snapshot_parser.add_argument("--full", action="store_true", help="rebuild from dev-base through the baselines")
+    build_snapshot_parser.add_argument(
+        "--full", action="store_true", help="rebuild from dev-base through the baselines"
+    )
     build_snapshot_parser.set_defaults(handler=lambda layout, args: build_snapshot(layout, full=args.full))
 
     return parser
@@ -113,12 +117,11 @@ def add_project(layout, args):
         add_project_entry(layout, entry)
 
 
-
 def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
         args.handler(Layout.default(), args)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - report any failure as a CLI error
         print(f"pds: {error}", file=sys.stderr)
         return 1
     return 0

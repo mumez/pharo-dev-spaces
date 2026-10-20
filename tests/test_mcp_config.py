@@ -109,7 +109,12 @@ def test_claude_command_uses_only_the_slot_mcp_config(tmp_path):
     command = claude_command(tmp_path / "mcp.json", ["--model", "opus"])
 
     assert command == [
-        "claude", "--strict-mcp-config", "--mcp-config", str(tmp_path / "mcp.json"), "--model", "opus",
+        "claude",
+        "--strict-mcp-config",
+        "--mcp-config",
+        str(tmp_path / "mcp.json"),
+        "--model",
+        "opus",
     ]
 
 
