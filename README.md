@@ -64,7 +64,7 @@ Both modes:
 1. `git fetch` each repository and extract `srcDir` at `origin/develop` into a temporary directory, without touching your working trees.
 2. Load each baseline with Metacello (`tonel://<extracted srcDir>`, with its `groups`).
 3. Run the tests in the package directories under `srcDir` that are loaded in the image.
-4. Only if every test passes: replace `snapshots/current`, write `snapshots/<date>.json` (mode, base, SHA of each repository, test results), and archive the image to `archives/<date>.tar.gz`. If a test fails, `snapshots/current` is left unchanged.
+4. Only if every test passes: replace `snapshots/current`, write `snapshots/<date>.json` (build time, mode, base, SHA of each repository, test results), and archive the image to `archives/<date>.tar.gz`. If a test fails, `snapshots/current` is left unchanged.
 
 Incremental builds pick up changed methods and baseline changes (new packages or dependencies). Removing or renaming packages and classes is not reflected; run `--full` for that.
 
@@ -94,6 +94,8 @@ Both configs hold the smalltalk-dev plugin's MCP servers (`smalltalk-interop` po
 ```json
 { "mcpServers": { "my-server": { "command": "...", "args": ["..."] } } }
 ```
+
+`status` / `list-slots` include `origin`, recorded by `reset`: `{"source": "snapshots/current", "snapshot": "<date>", "builtAt": "<date>T<time>"}` (the latest `snapshots/<date>.json` manifest at reset time and its `builtAt`; `null` for manifests written before `builtAt` was recorded) or `{"source": "dev-base", "snapshot": null, "builtAt": null}`. It is `null` for a slot that was never reset (or was reset by an older pds).
 
 A slot counts as running only if it was started with `pds slot N up` or `pds slot N gui`, which write a pid file.
 

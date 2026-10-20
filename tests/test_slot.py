@@ -61,6 +61,41 @@ def test_reset_slot_recreates_slot_from_origin(layout):
     assert not (slot_dir(layout, 2) / "pharo-local").exists()
 
 
+def test_status_reports_dev_base_origin_after_reset(layout):
+    make_image_dir(layout.plain_dir)
+    make_image_dir(layout.dev_base_dir)
+
+    reset_slot(layout, 1)
+
+    assert slot_status(layout, 1)["origin"] == {"source": "dev-base", "snapshot": None, "builtAt": None}
+
+
+def test_status_reports_snapshot_date_after_reset_from_current_snapshot(layout):
+    make_image_dir(layout.plain_dir)
+    make_image_dir(layout.current_snapshot_dir)
+    (layout.snapshots_dir / "2026-10-12.json").write_text("{}")
+    (layout.snapshots_dir / "2026-10-15.json").write_text(json.dumps({"builtAt": "2026-10-15T09:30:15"}))
+
+    reset_slot(layout, 2)
+    (layout.snapshots_dir / "2026-10-16.json").write_text("{}")
+
+    assert slot_status(layout, 2)["origin"] == {
+        "source": "snapshots/current",
+        "snapshot": "2026-10-15",
+        "builtAt": "2026-10-15T09:30:15",
+    }
+
+
+def test_status_reports_no_build_time_for_manifest_written_before_build_times_were_recorded(layout):
+    make_image_dir(layout.plain_dir)
+    make_image_dir(layout.current_snapshot_dir)
+    (layout.snapshots_dir / "2026-10-12.json").write_text("{}")
+
+    reset_slot(layout, 1)
+
+    assert slot_status(layout, 1)["origin"]["builtAt"] is None
+
+
 def write_pid(layout, slot_number, pid):
     slot_dir(layout, slot_number).mkdir(parents=True, exist_ok=True)
     (slot_dir(layout, slot_number) / "pharo.pid").write_text(str(pid))
@@ -76,11 +111,25 @@ def test_status_of_running_slot_reports_pid_and_port(layout):
     make_image_dir(slot_dir(layout, 2))
     write_pid(layout, 2, os.getpid())
 
-    assert slot_status(layout, 2) == {"slot": 2, "port": 8088, "hasImage": True, "running": True, "pid": os.getpid()}
+    assert slot_status(layout, 2) == {
+        "slot": 2,
+        "port": 8088,
+        "hasImage": True,
+        "running": True,
+        "pid": os.getpid(),
+        "origin": None,
+    }
 
 
 def test_status_of_slot_never_reset_is_free_without_image(layout):
-    assert slot_status(layout, 3) == {"slot": 3, "port": 8089, "hasImage": False, "running": False, "pid": None}
+    assert slot_status(layout, 3) == {
+        "slot": 3,
+        "port": 8089,
+        "hasImage": False,
+        "running": False,
+        "pid": None,
+        "origin": None,
+    }
 
 
 def test_slot_with_stale_pid_is_not_running(layout):
