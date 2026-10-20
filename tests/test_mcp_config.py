@@ -1,13 +1,14 @@
 import json
+from pathlib import Path
 
 import pytest
 
 from pds import mcp_config
 from pds.mcp_config import (
+    agent_workspace_dir,
     claude_command,
     cursor_agent_command,
     cursor_mcp_config,
-    cursor_workspace_dir,
     launch_claude,
     launch_cursor_agent,
     slot_mcp_config,
@@ -142,15 +143,15 @@ def test_cursor_agent_command_can_opt_in_to_approve_mcps(tmp_path):
     assert command == ["cursor-agent", "--workspace", str(workspace), "--approve-mcps", "-p", "hi"]
 
 
-def test_cursor_workspace_dir_defaults_to_cwd(monkeypatch, tmp_path):
+def test_agent_workspace_dir_defaults_to_cwd(monkeypatch, tmp_path):
     monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(tmp_path))
 
-    assert cursor_workspace_dir() == tmp_path.resolve()
+    assert agent_workspace_dir() == tmp_path.resolve()
 
 
-def test_cursor_workspace_dir_rejects_missing_directory(tmp_path):
+def test_agent_workspace_dir_rejects_missing_directory(tmp_path):
     with pytest.raises(FileNotFoundError, match="workspace directory does not exist"):
-        cursor_workspace_dir(tmp_path / "missing")
+        agent_workspace_dir(tmp_path / "missing")
 
 
 def test_launch_claude_warns_when_slot_is_not_running(layout, monkeypatch, capsys):
@@ -161,6 +162,32 @@ def test_launch_claude_warns_when_slot_is_not_running(layout, monkeypatch, capsy
 
     assert "pds slot 1 up" in capsys.readouterr().err
     assert executed[0][:2] == ["claude", "--strict-mcp-config"]
+
+
+def test_launch_claude_defaults_workspace_to_cwd(layout, monkeypatch, tmp_path):
+    changed_dirs = []
+    monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: None)
+    monkeypatch.setattr(mcp_config.os, "chdir", changed_dirs.append)
+    monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(tmp_path))
+
+    launch_claude(layout, 1, [])
+
+    assert changed_dirs == [tmp_path.resolve()]
+
+
+def test_launch_claude_runs_in_workspace_with_absolute_mcp_config(layout, monkeypatch, tmp_path):
+    executed = []
+    changed_dirs = []
+    stick = tmp_path / "Stick"
+    stick.mkdir()
+    monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
+    monkeypatch.setattr(mcp_config.os, "chdir", changed_dirs.append)
+
+    launch_claude(layout, 2, ["-p", "fix Stick"], workspace=stick)
+
+    assert changed_dirs == [stick.resolve()]
+    assert executed[0] == claude_command(slot_dir(layout, 2) / "mcp.json", ["-p", "fix Stick"])
+    assert Path(executed[0][3]).is_absolute()
 
 
 def test_launch_cursor_agent_defaults_workspace_to_cwd(layout, monkeypatch, capsys, tmp_path):

@@ -48,10 +48,14 @@ def build_parser():
     gui_parser.set_defaults(handler=lambda layout, args: start_slot(layout, args.slot_number, gui=True))
 
     claude_parser = slot_actions.add_parser("claude", help="run Claude Code with MCP pointed at the slot")
+    claude_parser.add_argument("--workspace", default=None, help="directory claude runs in (default: cwd)")
     claude_parser.add_argument("claude_arguments", nargs=argparse.REMAINDER, help="passed to claude (after --)")
     claude_parser.set_defaults(
         handler=lambda layout, args: launch_claude(
-            layout, args.slot_number, without_leading_double_dash(args.claude_arguments)
+            layout,
+            args.slot_number,
+            without_leading_double_dash(args.claude_arguments),
+            workspace=args.workspace,
         )
     )
 

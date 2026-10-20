@@ -2,6 +2,8 @@
 
 Claude: `claude --strict-mcp-config --mcp-config slots/slotN/mcp.json` with a
 concrete SIS_PORT so the smalltalk-dev plugin's servers (fixed to 8086) are hidden.
+`pds slot N claude [--workspace DIR]` runs claude in DIR (default: cwd); claude
+has no workspace flag, so pds changes directory before exec.
 
 Cursor: has no --mcp-config flag. It loads `<workspace>/.cursor/mcp.json`.
 `pds slot N cursor-agent [--workspace DIR]` uses DIR (default: cwd) as
@@ -101,8 +103,8 @@ def write_slot_mcp_config(layout, slot_number):
     return _write_mcp_json(slot_dir(layout, slot_number) / "mcp.json", slot_mcp_config(layout, slot_number))
 
 
-def cursor_workspace_dir(workspace=None):
-    """Directory used as cursor-agent --workspace (`--workspace`, or cwd)."""
+def agent_workspace_dir(workspace=None):
+    """Directory the agent works in (`--workspace`, or cwd)."""
     workspace_dir = Path(workspace or os.getcwd()).resolve()
     if not workspace_dir.is_dir():
         raise FileNotFoundError(f"workspace directory does not exist: {workspace_dir}")
@@ -147,17 +149,19 @@ def _warn_if_slot_stopped(layout, slot_number):
         )
 
 
-def launch_claude(layout, slot_number, claude_arguments):
-    """Replace this process with Claude Code connected to the slot's image."""
+def launch_claude(layout, slot_number, claude_arguments, workspace=None):
+    """Replace this process with Claude Code connected to the slot's image, running in the workspace."""
     _warn_if_slot_stopped(layout, slot_number)
+    workspace_dir = agent_workspace_dir(workspace)
     command = claude_command(write_slot_mcp_config(layout, slot_number), claude_arguments)
+    os.chdir(workspace_dir)
     os.execvp(command[0], command)
 
 
 def launch_cursor_agent(layout, slot_number, cursor_arguments, workspace=None, approve_mcps=False):
     """Replace this process with Cursor Agent connected to the slot's image."""
     _warn_if_slot_stopped(layout, slot_number)
-    workspace_dir = cursor_workspace_dir(workspace)
+    workspace_dir = agent_workspace_dir(workspace)
     write_cursor_mcp_config(layout, workspace_dir)
     command = cursor_agent_command(workspace_dir, cursor_arguments, approve_mcps=approve_mcps)
     os.environ["SIS_PORT"] = str(slot_port(slot_number))

@@ -15,13 +15,29 @@ def test_slot_number_comes_before_the_slot_action():
 def test_slot_claude_passes_arguments_after_double_dash_to_claude(monkeypatch):
     launches = []
     monkeypatch.setattr(
-        cli, "launch_claude", lambda layout, slot_number, arguments: launches.append((slot_number, arguments))
+        cli,
+        "launch_claude",
+        lambda layout, slot_number, arguments, workspace=None: launches.append((slot_number, arguments, workspace)),
     )
     args = build_parser().parse_args(["slot", "1", "claude", "--", "-p", "/st-eval Smalltalk version"])
 
     args.handler(None, args)
 
-    assert launches == [(1, ["-p", "/st-eval Smalltalk version"])]
+    assert launches == [(1, ["-p", "/st-eval Smalltalk version"], None)]
+
+
+def test_slot_claude_passes_workspace(monkeypatch):
+    launches = []
+    monkeypatch.setattr(
+        cli,
+        "launch_claude",
+        lambda layout, slot_number, arguments, workspace=None: launches.append((slot_number, arguments, workspace)),
+    )
+    args = build_parser().parse_args(["slot", "2", "claude", "--workspace", "./repos/Stick", "--", "-p", "fix Stick"])
+
+    args.handler(None, args)
+
+    assert launches == [(2, ["-p", "fix Stick"], "./repos/Stick")]
 
 
 def test_slot_cursor_agent_passes_arguments_after_double_dash(monkeypatch):
