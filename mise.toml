@@ -1,0 +1,4 @@
+[tools]
+prek = "latest"
+ruff = "0.17.1"
+uv = "latest"
