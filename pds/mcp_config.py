@@ -1,12 +1,13 @@
 """Per-slot MCP configuration for Claude Code and Cursor Agent.
 
-Claude: `claude --strict-mcp-config --mcp-config slots/slotN/mcp.json` with a
-concrete SIS_PORT so the smalltalk-dev plugin's servers (fixed to 8086) are hidden.
-`pds slot N claude [--workspace DIR]` runs claude in DIR (default: cwd); claude
-has no workspace flag, so pds changes directory before exec.
+Claude: the smalltalk-dev plugin (>= 2.4.0) reads `${SIS_PORT:-8086}`, so
+`pds slot N claude [--workdir DIR]` only sets `SIS_PORT=8086+N` and runs plain
+`claude` in DIR (default: cwd), keeping user and project MCP servers. Claude
+has no directory flag, so pds changes directory before exec. pds warns when the
+installed plugin still has a fixed port.
 
-Cursor: has no --mcp-config flag. It loads `<workspace>/.cursor/mcp.json`.
-`pds slot N cursor-agent [--workspace DIR]` uses DIR (default: cwd) as
+Cursor: has no --mcp-config flag. It loads `<workdir>/.cursor/mcp.json`.
+`pds slot N cursor-agent [--workdir DIR]` uses DIR (default: cwd) as
 `cursor-agent --workspace`, merges smalltalk servers into that directory's
 `.cursor/mcp.json` with `"SIS_PORT": "${env:SIS_PORT}"`, and sets
 `SIS_PORT=8086+N` in the process environment. Cursor does not support
@@ -19,11 +20,11 @@ import os
 import sys
 from pathlib import Path
 
-from pds.slot import is_slot_running, slot_dir, slot_port
+from pds.slot import is_slot_running, slot_port
 
 
-def _smalltalk_dev_servers(sis_port_value):
-    """smalltalk-dev MCP servers; `sis_port_value` is a port string or `${env:SIS_PORT}`."""
+def cursor_smalltalk_dev_servers():
+    """smalltalk-dev MCP servers for Cursor: port from process env via Cursor's `${env:NAME}` expansion."""
     return {
         "smalltalk-interop": {
             "command": "uvx",
@@ -32,7 +33,7 @@ def _smalltalk_dev_servers(sis_port_value):
                 "git+https://github.com/mumez/smalltalk-interop-mcp-server.git",
                 "smalltalk-interop-mcp-server",
             ],
-            "env": {"SIS_PORT": sis_port_value},
+            "env": {"SIS_PORT": "${env:SIS_PORT}"},
         },
         "smalltalk-validator": {
             "command": "uvx",
@@ -45,44 +46,19 @@ def _smalltalk_dev_servers(sis_port_value):
     }
 
 
-def smalltalk_dev_servers(sis_port):
-    """Claude / concrete-port form of the smalltalk-dev servers."""
-    return _smalltalk_dev_servers(str(sis_port))
-
-
-def cursor_smalltalk_dev_servers():
-    """Cursor form: port from process env via Cursor's `${env:NAME}` expansion."""
-    return _smalltalk_dev_servers("${env:SIS_PORT}")
-
-
-def other_servers(layout):
-    if not layout.mcp_others_file.exists():
-        return {}
-    return json.loads(layout.mcp_others_file.read_text()).get("mcpServers", {})
-
-
-def _merged_servers(layout, base_servers, dev_servers):
-    """Merge MCP servers: base, then mcp_others.json, then smalltalk-dev (last wins)."""
-    return {**base_servers, **other_servers(layout), **dev_servers}
-
-
-def slot_mcp_config(layout, slot_number):
-    """Claude: concrete SIS_PORT for slots/slotN/mcp.json."""
-    return {"mcpServers": _merged_servers(layout, {}, smalltalk_dev_servers(slot_port(slot_number)))}
-
-
-def cursor_mcp_config(layout, existing=None):
+def cursor_mcp_config(existing=None):
     """Cursor MCP config: merge pds servers into any existing `.cursor/mcp.json`.
 
-    Existing servers are kept as the base. Then `mcp_others.json`, then
-    smalltalk-dev — so both mcp_others and smalltalk-dev override same-named
-    project servers. SIS_PORT is `${env:SIS_PORT}` (no `:-default` in Cursor).
+    Existing servers are kept; smalltalk-dev overrides same-named project
+    servers. SIS_PORT is `${env:SIS_PORT}` (no `:-default` in Cursor).
     """
     existing = existing or {}
-    existing_servers = existing.get("mcpServers", {})
     return {
         **existing,
-        "mcpServers": _merged_servers(layout, existing_servers, cursor_smalltalk_dev_servers()),
+        "mcpServers": {
+            **existing.get("mcpServers", {}),
+            **cursor_smalltalk_dev_servers(),
+        },
     }
 
 
@@ -98,24 +74,19 @@ def _write_mcp_json(path, config):
     return path
 
 
-def write_slot_mcp_config(layout, slot_number):
-    """Claude Code: slots/slotN/mcp.json for --mcp-config."""
-    return _write_mcp_json(slot_dir(layout, slot_number) / "mcp.json", slot_mcp_config(layout, slot_number))
+def agent_workdir(workdir=None):
+    """Directory the agent works in (`--workdir`, or cwd)."""
+    workdir = Path(workdir or os.getcwd()).resolve()
+    if not workdir.is_dir():
+        raise FileNotFoundError(f"workdir does not exist: {workdir}")
+    return workdir
 
 
-def agent_workspace_dir(workspace=None):
-    """Directory the agent works in (`--workspace`, or cwd)."""
-    workspace_dir = Path(workspace or os.getcwd()).resolve()
-    if not workspace_dir.is_dir():
-        raise FileNotFoundError(f"workspace directory does not exist: {workspace_dir}")
-    return workspace_dir
-
-
-def write_cursor_mcp_config(layout, workspace_dir):
-    """Merge pds MCP servers into workspace_dir/.cursor/mcp.json (create if missing)."""
-    path = Path(workspace_dir) / ".cursor" / "mcp.json"
+def write_cursor_mcp_config(workdir):
+    """Merge pds MCP servers into workdir/.cursor/mcp.json (create if missing)."""
+    path = Path(workdir) / ".cursor" / "mcp.json"
     before = path.read_text() if path.exists() else None
-    config = cursor_mcp_config(layout, existing=_read_mcp_json(path))
+    config = cursor_mcp_config(existing=_read_mcp_json(path))
     written = _write_mcp_json(path, config)
     after = written.read_text()
     if before != after:
@@ -128,13 +99,45 @@ def write_cursor_mcp_config(layout, workspace_dir):
     return written
 
 
-def claude_command(mcp_config_path, claude_arguments):
-    return ["claude", "--strict-mcp-config", "--mcp-config", str(mcp_config_path), *claude_arguments]
+def _claude_config_dir():
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
 
-def cursor_agent_command(workspace, cursor_arguments, approve_mcps=False):
-    """Assemble the cursor-agent argv for a workspace."""
-    command = ["cursor-agent", "--workspace", str(workspace)]
+def installed_smalltalk_dev_plugin_follows_sis_port():
+    """Whether every installed smalltalk-dev plugin's `.mcp.json` reads `${SIS_PORT...}`.
+
+    Best-effort: `installed_plugins.json` is owned by Claude, so a missing,
+    unreadable, or unexpectedly shaped file yields False instead of raising.
+    """
+    installed_file = _claude_config_dir() / "plugins" / "installed_plugins.json"
+    try:
+        plugins = json.loads(installed_file.read_text()).get("plugins", {})
+        installs = [
+            install
+            for name, plugin_installs in plugins.items()
+            if name.startswith("smalltalk-dev@")
+            for install in plugin_installs
+        ]
+        return bool(installs) and all(
+            "${SIS_PORT" in (Path(install["installPath"]) / ".mcp.json").read_text() for install in installs
+        )
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return False
+
+
+def _warn_unless_smalltalk_dev_plugin_follows_sis_port():
+    if not installed_smalltalk_dev_plugin_follows_sis_port():
+        print(
+            "pds: warning: installed smalltalk-dev plugin does not read SIS_PORT (needs >= 2.4.0); "
+            "smalltalk-interop may connect to port 8086 instead of this slot. "
+            "Update it with `claude plugin update smalltalk-dev@smalltalk-dev-marketplace`.",
+            file=sys.stderr,
+        )
+
+
+def cursor_agent_command(workdir, cursor_arguments, approve_mcps=False):
+    """Assemble the cursor-agent argv for a workdir."""
+    command = ["cursor-agent", "--workspace", str(workdir)]
     if approve_mcps:
         command.append("--approve-mcps")
     command.extend(cursor_arguments)
@@ -149,20 +152,23 @@ def _warn_if_slot_stopped(layout, slot_number):
         )
 
 
-def launch_claude(layout, slot_number, claude_arguments, workspace=None):
-    """Replace this process with Claude Code connected to the slot's image, running in the workspace."""
-    _warn_if_slot_stopped(layout, slot_number)
-    workspace_dir = agent_workspace_dir(workspace)
-    command = claude_command(write_slot_mcp_config(layout, slot_number), claude_arguments)
-    os.chdir(workspace_dir)
-    os.execvp(command[0], command)
-
-
-def launch_cursor_agent(layout, slot_number, cursor_arguments, workspace=None, approve_mcps=False):
-    """Replace this process with Cursor Agent connected to the slot's image."""
-    _warn_if_slot_stopped(layout, slot_number)
-    workspace_dir = agent_workspace_dir(workspace)
-    write_cursor_mcp_config(layout, workspace_dir)
-    command = cursor_agent_command(workspace_dir, cursor_arguments, approve_mcps=approve_mcps)
+def _exec_with_slot_port(slot_number, command):
     os.environ["SIS_PORT"] = str(slot_port(slot_number))
     os.execvp(command[0], command)
+
+
+def launch_claude(layout, slot_number, claude_arguments, workdir=None):
+    """Replace this process with Claude Code connected to the slot's image, running in the workdir."""
+    _warn_if_slot_stopped(layout, slot_number)
+    _warn_unless_smalltalk_dev_plugin_follows_sis_port()
+    workdir = agent_workdir(workdir)
+    os.chdir(workdir)
+    _exec_with_slot_port(slot_number, ["claude", *claude_arguments])
+
+
+def launch_cursor_agent(layout, slot_number, cursor_arguments, workdir=None, approve_mcps=False):
+    """Replace this process with Cursor Agent connected to the slot's image."""
+    _warn_if_slot_stopped(layout, slot_number)
+    workdir = agent_workdir(workdir)
+    write_cursor_mcp_config(workdir)
+    _exec_with_slot_port(slot_number, cursor_agent_command(workdir, cursor_arguments, approve_mcps=approve_mcps))
