@@ -261,3 +261,15 @@ def test_launch_cursor_agent_with_workdir_sets_sis_port_for_each_slot(layout, mo
         "-p",
         "fix tests",
     ]
+
+
+def test_launch_claude_passes_sis_port_from_ports_file(layout, monkeypatch, tmp_path, claude_config_dir):
+    (layout.slots_dir / "slot2").mkdir(parents=True)
+    (layout.slots_dir / "slot2" / "ports.json").write_text('{"sis": 8188}')
+    monkeypatch.delenv("SIS_PORT", raising=False)
+    monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: None)
+    monkeypatch.setattr(mcp_config.os, "chdir", lambda path: None)
+
+    launch_claude(layout, 2, [], workdir=tmp_path)
+
+    assert mcp_config.os.environ["SIS_PORT"] == "8188"

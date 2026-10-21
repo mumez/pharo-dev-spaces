@@ -1,4 +1,5 @@
 import os
+import socket
 import subprocess
 
 # SIS starts in every image we launch; builds use their own port so they never clash with slots or 8086.
@@ -9,6 +10,10 @@ RIPPLE_PORT_OFFSET_FROM_SIS = 1000
 
 
 class PharoRunError(RuntimeError):
+    pass
+
+
+class PortInUseError(RuntimeError):
     pass
 
 
@@ -45,13 +50,36 @@ def keep_alive_command(layout, image):
     return pharo_command(layout, image, "eval", "--no-quit", "nil")
 
 
-def pharo_environment(port):
-    """SIS listens on `port` and Ripple on `port` + 1000 (read from the environment at image startup)."""
+def default_ripple_port(sis_port):
+    return sis_port + RIPPLE_PORT_OFFSET_FROM_SIS
+
+
+def pharo_environment(port, ripple_port=None):
+    """SIS listens on `port` and Ripple on `ripple_port` (default `port` + 1000), read at image startup."""
     return {
         **os.environ,
         "PHARO_SIS_PORT": str(port),
-        "PHARO_RIPPLE_PORT": str(port + RIPPLE_PORT_OFFSET_FROM_SIS),
+        "PHARO_RIPPLE_PORT": str(default_ripple_port(port) if ripple_port is None else ripple_port),
     }
+
+
+def ensure_pharo_ports_available(environment):
+    """Fail before launch: a busy port only shows up as a debugger inside the image (invisible when headless)."""
+    for role, variable in (("SIS", "PHARO_SIS_PORT"), ("Ripple", "PHARO_RIPPLE_PORT")):
+        role_port = int(environment[variable])
+        if not is_port_available(role_port):
+            raise PortInUseError(f"{role} port {role_port} is already in use by another process")
+
+
+def is_port_available(port):
+    """Bind like Pharo does (all interfaces); SO_REUSEADDR ignores sockets left in TIME_WAIT by a stopped image."""
+    with socket.socket() as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind(("0.0.0.0", port))
+        except OSError:
+            return False
+    return True
 
 
 def run_pharo(layout, image, script, port, timeout, save=False):
