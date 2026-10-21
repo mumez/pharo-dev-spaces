@@ -42,7 +42,3 @@ class Layout:
     @property
     def projects_file(self):
         return self.root / "projects.json"
-
-    @property
-    def mcp_others_file(self):
-        return self.root / "mcp_others.json"
