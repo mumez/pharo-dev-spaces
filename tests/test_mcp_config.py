@@ -129,6 +129,38 @@ def test_missing_smalltalk_dev_plugin_does_not_follow_sis_port(claude_config_dir
     assert not installed_smalltalk_dev_plugin_follows_sis_port()
 
 
+@pytest.mark.parametrize(
+    "installed_plugins_text",
+    [
+        "{not json",
+        json.dumps({"plugins": {"smalltalk-dev@smalltalk-dev-marketplace": [{"path": "renamed-key"}]}}),
+        json.dumps({"plugins": {"smalltalk-dev@smalltalk-dev-marketplace": ["not-a-dict"]}}),
+        json.dumps({"plugins": ["not-a-dict"]}),
+        json.dumps({"plugins": {"smalltalk-dev@smalltalk-dev-marketplace": [{"installPath": "/missing"}]}}),
+    ],
+)
+def test_unexpected_installed_plugins_file_does_not_follow_sis_port(claude_config_dir, installed_plugins_text):
+    (claude_config_dir / "plugins").mkdir(parents=True)
+    (claude_config_dir / "plugins" / "installed_plugins.json").write_text(installed_plugins_text)
+
+    assert not installed_smalltalk_dev_plugin_follows_sis_port()
+
+
+def test_launch_claude_still_runs_when_installed_plugins_file_is_malformed(
+    layout, monkeypatch, capsys, claude_config_dir
+):
+    executed = []
+    (claude_config_dir / "plugins").mkdir(parents=True)
+    (claude_config_dir / "plugins" / "installed_plugins.json").write_text("{not json")
+    monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
+    monkeypatch.setattr(mcp_config.os, "chdir", lambda path: None)
+
+    launch_claude(layout, 1, [])
+
+    assert executed == [["claude"]]
+    assert "smalltalk-dev plugin does not read SIS_PORT" in capsys.readouterr().err
+
+
 def test_launch_claude_warns_when_slot_is_not_running(layout, monkeypatch, capsys, claude_config_dir):
     install_smalltalk_dev_plugin(claude_config_dir, '{"env": {"SIS_PORT": "${SIS_PORT:-8086}"}}')
     monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: None)

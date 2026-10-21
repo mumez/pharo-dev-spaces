@@ -104,24 +104,25 @@ def _claude_config_dir():
 
 
 def installed_smalltalk_dev_plugin_follows_sis_port():
-    """Whether every installed smalltalk-dev plugin's `.mcp.json` reads `${SIS_PORT...}` (False if none)."""
+    """Whether every installed smalltalk-dev plugin's `.mcp.json` reads `${SIS_PORT...}`.
+
+    Best-effort: `installed_plugins.json` is owned by Claude, so a missing,
+    unreadable, or unexpectedly shaped file yields False instead of raising.
+    """
     installed_file = _claude_config_dir() / "plugins" / "installed_plugins.json"
-    if not installed_file.exists():
+    try:
+        plugins = json.loads(installed_file.read_text()).get("plugins", {})
+        installs = [
+            install
+            for name, plugin_installs in plugins.items()
+            if name.startswith("smalltalk-dev@")
+            for install in plugin_installs
+        ]
+        return bool(installs) and all(
+            "${SIS_PORT" in (Path(install["installPath"]) / ".mcp.json").read_text() for install in installs
+        )
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return False
-    plugins = json.loads(installed_file.read_text()).get("plugins", {})
-    installs = [
-        install
-        for name, plugin_installs in plugins.items()
-        if name.startswith("smalltalk-dev@")
-        for install in plugin_installs
-    ]
-    return bool(installs) and all(
-        "${SIS_PORT" in _read_text_or_empty(Path(install["installPath"]) / ".mcp.json") for install in installs
-    )
-
-
-def _read_text_or_empty(path):
-    return path.read_text() if path.exists() else ""
 
 
 def _warn_unless_smalltalk_dev_plugin_follows_sis_port():
