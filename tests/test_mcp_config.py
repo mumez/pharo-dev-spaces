@@ -5,7 +5,7 @@ import pytest
 
 from pds import mcp_config
 from pds.mcp_config import (
-    agent_workspace_dir,
+    agent_workdir,
     claude_command,
     cursor_agent_command,
     cursor_mcp_config,
@@ -59,12 +59,12 @@ def test_cursor_mcp_config_lets_mcp_others_override_existing_project_servers(lay
 
 
 def test_write_cursor_mcp_config_preserves_existing_project_servers_and_warns(layout, tmp_path, capsys):
-    workspace = tmp_path / "Stick"
-    path = workspace / ".cursor" / "mcp.json"
+    workdir = tmp_path / "Stick"
+    path = workdir / ".cursor" / "mcp.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps({"mcpServers": {"my-server": {"command": "true"}}}) + "\n")
 
-    write_cursor_mcp_config(layout, workspace)
+    write_cursor_mcp_config(layout, workdir)
 
     servers = json.loads(path.read_text())["mcpServers"]
     assert servers["my-server"] == {"command": "true"}
@@ -73,11 +73,11 @@ def test_write_cursor_mcp_config_preserves_existing_project_servers_and_warns(la
 
 
 def test_write_cursor_mcp_config_does_not_warn_when_unchanged(layout, tmp_path, capsys):
-    workspace = tmp_path / "Stick"
-    write_cursor_mcp_config(layout, workspace)
+    workdir = tmp_path / "Stick"
+    write_cursor_mcp_config(layout, workdir)
     capsys.readouterr()
 
-    write_cursor_mcp_config(layout, workspace)
+    write_cursor_mcp_config(layout, workdir)
 
     assert capsys.readouterr().err == ""
 
@@ -120,38 +120,38 @@ def test_claude_command_uses_only_the_slot_mcp_config(tmp_path):
 
 
 def test_cursor_agent_command_omits_approve_mcps_by_default(tmp_path):
-    workspace = tmp_path / "Stick"
-    workspace.mkdir()
+    workdir = tmp_path / "Stick"
+    workdir.mkdir()
 
-    command = cursor_agent_command(workspace, ["-p", "/st-eval Smalltalk version"])
+    command = cursor_agent_command(workdir, ["-p", "/st-eval Smalltalk version"])
 
     assert command == [
         "cursor-agent",
         "--workspace",
-        str(workspace),
+        str(workdir),
         "-p",
         "/st-eval Smalltalk version",
     ]
 
 
 def test_cursor_agent_command_can_opt_in_to_approve_mcps(tmp_path):
-    workspace = tmp_path / "Stick"
-    workspace.mkdir()
+    workdir = tmp_path / "Stick"
+    workdir.mkdir()
 
-    command = cursor_agent_command(workspace, ["-p", "hi"], approve_mcps=True)
+    command = cursor_agent_command(workdir, ["-p", "hi"], approve_mcps=True)
 
-    assert command == ["cursor-agent", "--workspace", str(workspace), "--approve-mcps", "-p", "hi"]
+    assert command == ["cursor-agent", "--workspace", str(workdir), "--approve-mcps", "-p", "hi"]
 
 
-def test_agent_workspace_dir_defaults_to_cwd(monkeypatch, tmp_path):
+def test_agent_workdir_defaults_to_cwd(monkeypatch, tmp_path):
     monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(tmp_path))
 
-    assert agent_workspace_dir() == tmp_path.resolve()
+    assert agent_workdir() == tmp_path.resolve()
 
 
-def test_agent_workspace_dir_rejects_missing_directory(tmp_path):
-    with pytest.raises(FileNotFoundError, match="workspace directory does not exist"):
-        agent_workspace_dir(tmp_path / "missing")
+def test_agent_workdir_rejects_missing_directory(tmp_path):
+    with pytest.raises(FileNotFoundError, match="workdir does not exist"):
+        agent_workdir(tmp_path / "missing")
 
 
 def test_launch_claude_warns_when_slot_is_not_running(layout, monkeypatch, capsys):
@@ -164,7 +164,7 @@ def test_launch_claude_warns_when_slot_is_not_running(layout, monkeypatch, capsy
     assert executed[0][:2] == ["claude", "--strict-mcp-config"]
 
 
-def test_launch_claude_defaults_workspace_to_cwd(layout, monkeypatch, tmp_path):
+def test_launch_claude_defaults_workdir_to_cwd(layout, monkeypatch, tmp_path):
     changed_dirs = []
     monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: None)
     monkeypatch.setattr(mcp_config.os, "chdir", changed_dirs.append)
@@ -175,7 +175,7 @@ def test_launch_claude_defaults_workspace_to_cwd(layout, monkeypatch, tmp_path):
     assert changed_dirs == [tmp_path.resolve()]
 
 
-def test_launch_claude_runs_in_workspace_with_absolute_mcp_config(layout, monkeypatch, tmp_path):
+def test_launch_claude_runs_in_workdir_with_absolute_mcp_config(layout, monkeypatch, tmp_path):
     executed = []
     changed_dirs = []
     stick = tmp_path / "Stick"
@@ -183,49 +183,49 @@ def test_launch_claude_runs_in_workspace_with_absolute_mcp_config(layout, monkey
     monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
     monkeypatch.setattr(mcp_config.os, "chdir", changed_dirs.append)
 
-    launch_claude(layout, 2, ["-p", "fix Stick"], workspace=stick)
+    launch_claude(layout, 2, ["-p", "fix Stick"], workdir=stick)
 
     assert changed_dirs == [stick.resolve()]
     assert executed[0] == claude_command(slot_dir(layout, 2) / "mcp.json", ["-p", "fix Stick"])
     assert Path(executed[0][3]).is_absolute()
 
 
-def test_launch_cursor_agent_defaults_workspace_to_cwd(layout, monkeypatch, capsys, tmp_path):
+def test_launch_cursor_agent_defaults_workdir_to_cwd(layout, monkeypatch, capsys, tmp_path):
     executed = []
-    workspace = tmp_path / "cwd-project"
-    workspace.mkdir()
+    workdir = tmp_path / "cwd-project"
+    workdir.mkdir()
     monkeypatch.delenv("SIS_PORT", raising=False)
     monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
-    monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(workspace))
+    monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(workdir))
 
     launch_cursor_agent(layout, 2, ["-p", "/st-eval Smalltalk version"])
 
     err = capsys.readouterr().err
     assert "pds slot 2 up" in err
     assert "Cursor does not support" in err
-    assert json.loads((workspace / ".cursor" / "mcp.json").read_text()) == cursor_mcp_config(layout)
+    assert json.loads((workdir / ".cursor" / "mcp.json").read_text()) == cursor_mcp_config(layout)
     assert mcp_config.os.environ["SIS_PORT"] == "8088"
     assert executed[0] == [
         "cursor-agent",
         "--workspace",
-        str(workspace.resolve()),
+        str(workdir.resolve()),
         "-p",
         "/st-eval Smalltalk version",
     ]
 
 
-def test_launch_cursor_agent_with_workspace_sets_sis_port_for_each_slot(layout, monkeypatch, capsys, tmp_path):
+def test_launch_cursor_agent_with_workdir_sets_sis_port_for_each_slot(layout, monkeypatch, capsys, tmp_path):
     executed = []
     stick = tmp_path / "Stick"
     stick.mkdir()
     monkeypatch.delenv("SIS_PORT", raising=False)
     monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
 
-    launch_cursor_agent(layout, 1, ["-p", "fix tests"], workspace=stick)
+    launch_cursor_agent(layout, 1, ["-p", "fix tests"], workdir=stick)
     first_config = (stick / ".cursor" / "mcp.json").read_text()
     assert mcp_config.os.environ["SIS_PORT"] == "8087"
 
-    launch_cursor_agent(layout, 2, ["-p", "fix tests"], workspace=stick, approve_mcps=True)
+    launch_cursor_agent(layout, 2, ["-p", "fix tests"], workdir=stick, approve_mcps=True)
 
     assert first_config == (stick / ".cursor" / "mcp.json").read_text()
     assert json.loads(first_config)["mcpServers"]["smalltalk-interop"]["env"]["SIS_PORT"] == "${env:SIS_PORT}"

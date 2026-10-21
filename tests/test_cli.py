@@ -17,7 +17,7 @@ def test_slot_claude_passes_arguments_after_double_dash_to_claude(monkeypatch):
     monkeypatch.setattr(
         cli,
         "launch_claude",
-        lambda layout, slot_number, arguments, workspace=None: launches.append((slot_number, arguments, workspace)),
+        lambda layout, slot_number, arguments, workdir=None: launches.append((slot_number, arguments, workdir)),
     )
     args = build_parser().parse_args(["slot", "1", "claude", "--", "-p", "/st-eval Smalltalk version"])
 
@@ -26,14 +26,14 @@ def test_slot_claude_passes_arguments_after_double_dash_to_claude(monkeypatch):
     assert launches == [(1, ["-p", "/st-eval Smalltalk version"], None)]
 
 
-def test_slot_claude_passes_workspace(monkeypatch):
+def test_slot_claude_passes_workdir(monkeypatch):
     launches = []
     monkeypatch.setattr(
         cli,
         "launch_claude",
-        lambda layout, slot_number, arguments, workspace=None: launches.append((slot_number, arguments, workspace)),
+        lambda layout, slot_number, arguments, workdir=None: launches.append((slot_number, arguments, workdir)),
     )
-    args = build_parser().parse_args(["slot", "2", "claude", "--workspace", "./repos/Stick", "--", "-p", "fix Stick"])
+    args = build_parser().parse_args(["slot", "2", "claude", "--workdir", "./repos/Stick", "--", "-p", "fix Stick"])
 
     args.handler(None, args)
 
@@ -45,8 +45,8 @@ def test_slot_cursor_agent_passes_arguments_after_double_dash(monkeypatch):
     monkeypatch.setattr(
         cli,
         "launch_cursor_agent",
-        lambda layout, slot_number, arguments, workspace=None, approve_mcps=False: launches.append(
-            (slot_number, arguments, workspace, approve_mcps)
+        lambda layout, slot_number, arguments, workdir=None, approve_mcps=False: launches.append(
+            (slot_number, arguments, workdir, approve_mcps)
         ),
     )
     args = build_parser().parse_args(["slot", "2", "cursor-agent", "--", "-p", "/st-eval Smalltalk version"])
@@ -56,13 +56,13 @@ def test_slot_cursor_agent_passes_arguments_after_double_dash(monkeypatch):
     assert launches == [(2, ["-p", "/st-eval Smalltalk version"], None, False)]
 
 
-def test_slot_cursor_agent_passes_workspace_and_approve_mcps(monkeypatch):
+def test_slot_cursor_agent_passes_workdir_and_approve_mcps(monkeypatch):
     launches = []
     monkeypatch.setattr(
         cli,
         "launch_cursor_agent",
-        lambda layout, slot_number, arguments, workspace=None, approve_mcps=False: launches.append(
-            (slot_number, arguments, workspace, approve_mcps)
+        lambda layout, slot_number, arguments, workdir=None, approve_mcps=False: launches.append(
+            (slot_number, arguments, workdir, approve_mcps)
         ),
     )
     args = build_parser().parse_args(
@@ -70,7 +70,7 @@ def test_slot_cursor_agent_passes_workspace_and_approve_mcps(monkeypatch):
             "slot",
             "2",
             "cursor-agent",
-            "--workspace",
+            "--workdir",
             "./repos/Stick",
             "--approve-mcps",
             "--",
