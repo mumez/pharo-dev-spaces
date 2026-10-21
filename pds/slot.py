@@ -28,7 +28,7 @@ NAMES_KEPT_ACROSS_RESET = (PORTS_FILE_NAME, "agentic-browser")
 PORT_OVERRIDE_KEYS = {"sis", "ripple"}
 
 
-def slot_port(slot_number):
+def default_slot_port(slot_number):
     if slot_number not in SLOT_NUMBERS:
         raise ValueError(f"slot number must be one of {SLOT_NUMBERS}, got {slot_number}")
     return SLOT_BASE_PORT + slot_number
@@ -37,16 +37,19 @@ def slot_port(slot_number):
 def slot_ports(layout, slot_number):
     """SIS/Ripple ports: 8086 + N and SIS + 1000 unless overridden by keys in slots/slotN/ports.json."""
     ports_file = slot_dir(layout, slot_number) / PORTS_FILE_NAME
-    overrides = json.loads(ports_file.read_text()) if ports_file.exists() else {}
+    try:
+        overrides = json.loads(ports_file.read_text()) if ports_file.exists() else {}
+    except json.JSONDecodeError as syntax_error:
+        raise ValueError(f"{ports_file}: {syntax_error}") from syntax_error
     unknown_keys = overrides.keys() - PORT_OVERRIDE_KEYS
     if unknown_keys:
         raise ValueError(f"{ports_file}: unknown keys {sorted(unknown_keys)}; expected {sorted(PORT_OVERRIDE_KEYS)}")
-    sis_port = overrides.get("sis", slot_port(slot_number))
+    sis_port = overrides.get("sis", default_slot_port(slot_number))
     return {"sis": sis_port, "ripple": overrides.get("ripple", default_ripple_port(sis_port))}
 
 
 def slot_dir(layout, slot_number):
-    slot_port(slot_number)
+    default_slot_port(slot_number)
     return layout.slots_dir / f"slot{slot_number}"
 
 
@@ -99,11 +102,14 @@ def is_slot_running(layout, slot_number):
 def slot_status(layout, slot_number):
     """A slot is free for a new session when it is not running."""
     pid = slot_pid(layout, slot_number)
-    ports = slot_ports(layout, slot_number)
+    status = {"slot": slot_number}
+    try:
+        ports = slot_ports(layout, slot_number)
+        status.update(port=ports["sis"], ripplePort=ports["ripple"])
+    except ValueError as ports_error:  # a broken ports.json must not hide the other slots in list-slots
+        status.update(port=None, ripplePort=None, portsError=str(ports_error))
     return {
-        "slot": slot_number,
-        "port": ports["sis"],
-        "ripplePort": ports["ripple"],
+        **status,
         "hasImage": image_path(slot_dir(layout, slot_number)).exists(),
         "running": pid is not None,
         "pid": pid,
