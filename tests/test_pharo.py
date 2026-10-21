@@ -1,10 +1,20 @@
 import json
+import socket
 import subprocess
 
 import pytest
 
 from pds import pharo
-from pds.pharo import PharoRunError, launch_pharo_ui, pharo_environment, pharo_ui_command, run_pharo, script_command
+from pds.pharo import (
+    PharoRunError,
+    PortInUseError,
+    ensure_pharo_ports_available,
+    launch_pharo_ui,
+    pharo_environment,
+    pharo_ui_command,
+    run_pharo,
+    script_command,
+)
 
 
 def test_pharo_command_runs_script_headless_and_quits(layout, tmp_path):
@@ -103,3 +113,44 @@ def test_run_pharo_executes_script_in_real_image(pharo_layout, tmp_path):
     run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8123, timeout=120)
 
     assert json.loads(result_file.read_text()) == {"answer": 2, "port": "8123"}
+
+
+def listening_socket():
+    listener = socket.socket()
+    listener.bind(("0.0.0.0", 0))
+    listener.listen()
+    return listener
+
+
+def test_free_sis_and_ripple_ports_pass_the_check():
+    with listening_socket() as probe:
+        free_port = probe.getsockname()[1]
+    if free_port + pharo.RIPPLE_PORT_OFFSET_FROM_SIS > 65535:
+        pytest.skip("ephemeral port too high to derive a Ripple port")
+
+    ensure_pharo_ports_available(pharo_environment(free_port))
+
+
+def test_occupied_sis_port_is_reported_with_its_role():
+    with listening_socket() as listener:
+        occupied_port = listener.getsockname()[1]
+
+        with pytest.raises(PortInUseError, match=f"SIS port {occupied_port}"):
+            ensure_pharo_ports_available(pharo_environment(occupied_port))
+
+
+def test_occupied_ripple_port_is_reported_with_its_role():
+    with listening_socket() as sis_probe:
+        free_sis_port = sis_probe.getsockname()[1]
+    with listening_socket() as listener:
+        occupied_port = listener.getsockname()[1]
+
+        with pytest.raises(PortInUseError, match=f"Ripple port {occupied_port}"):
+            ensure_pharo_ports_available(pharo_environment(free_sis_port, ripple_port=occupied_port))
+
+
+def test_ripple_port_can_be_set_apart_from_sis_port():
+    environment = pharo_environment(8089, ripple_port=9189)
+
+    assert environment["PHARO_SIS_PORT"] == "8089"
+    assert environment["PHARO_RIPPLE_PORT"] == "9189"

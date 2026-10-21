@@ -23,6 +23,17 @@ Each image `pds` starts gets its own ports, so images never collide:
 | slot N (1–3) | 8086 + N | 9086 + N |
 | snapshot build | 8090 | 9090 |
 
+To move a slot off a port another program already uses, put `slots/slotN/ports.json` next to its image.
+Only the keys you write override the defaults (`ripple` still follows `sis` + 1000 unless given):
+
+```json
+{ "ripple": 9189 }
+```
+
+`pds slot N up` refuses to start when the slot's SIS or Ripple port is already in use.
+
+`pds slot N reset` replaces the image but keeps the slot's `ports.json` and `agentic-browser/` (AgenticBrowser settings saved by that slot).
+
 ## Setup
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.

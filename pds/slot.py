@@ -2,24 +2,47 @@
 
 import json
 import os
+import shutil
 import signal
 import subprocess
 import time
 
 from pds.image_dir import copy_image, image_path, staged_replacement
-from pds.pharo import STANDALONE_SIS_PORT, keep_alive_command, pharo_environment, pharo_ui_command
+from pds.pharo import (
+    STANDALONE_SIS_PORT,
+    default_ripple_port,
+    ensure_pharo_ports_available,
+    keep_alive_command,
+    pharo_environment,
+    pharo_ui_command,
+)
 from pds.snapshot import latest_manifest_path
 
 SLOT_NUMBERS = (1, 2, 3)
 SLOT_BASE_PORT = STANDALONE_SIS_PORT  # stays free for a standalone image; slot N listens on 8086 + N
 STOP_TIMEOUT_SECONDS = 10
 ORIGIN_FILE_NAME = "origin.json"
+PORTS_FILE_NAME = "ports.json"  # optional per-slot override: {"sis": 8089, "ripple": 9189}
+# Per-slot settings that outlive the image: port overrides and AgenticBrowser settings saved by the image.
+NAMES_KEPT_ACROSS_RESET = (PORTS_FILE_NAME, "agentic-browser")
+PORT_OVERRIDE_KEYS = {"sis", "ripple"}
 
 
 def slot_port(slot_number):
     if slot_number not in SLOT_NUMBERS:
         raise ValueError(f"slot number must be one of {SLOT_NUMBERS}, got {slot_number}")
     return SLOT_BASE_PORT + slot_number
+
+
+def slot_ports(layout, slot_number):
+    """SIS/Ripple ports: 8086 + N and SIS + 1000 unless overridden by keys in slots/slotN/ports.json."""
+    ports_file = slot_dir(layout, slot_number) / PORTS_FILE_NAME
+    overrides = json.loads(ports_file.read_text()) if ports_file.exists() else {}
+    unknown_keys = overrides.keys() - PORT_OVERRIDE_KEYS
+    if unknown_keys:
+        raise ValueError(f"{ports_file}: unknown keys {sorted(unknown_keys)}; expected {sorted(PORT_OVERRIDE_KEYS)}")
+    sis_port = overrides.get("sis", slot_port(slot_number))
+    return {"sis": sis_port, "ripple": overrides.get("ripple", default_ripple_port(sis_port))}
 
 
 def slot_dir(layout, slot_number):
@@ -76,9 +99,11 @@ def is_slot_running(layout, slot_number):
 def slot_status(layout, slot_number):
     """A slot is free for a new session when it is not running."""
     pid = slot_pid(layout, slot_number)
+    ports = slot_ports(layout, slot_number)
     return {
         "slot": slot_number,
-        "port": slot_port(slot_number),
+        "port": ports["sis"],
+        "ripplePort": ports["ripple"],
         "hasImage": image_path(slot_dir(layout, slot_number)).exists(),
         "running": pid is not None,
         "pid": pid,
@@ -97,6 +122,16 @@ def reset_slot(layout, slot_number):
         origin_dir = slot_origin_dir(layout)
         copy_image(layout, origin_dir, staging_dir)
         (staging_dir / ORIGIN_FILE_NAME).write_text(json.dumps(slot_origin(layout, origin_dir), indent=2) + "\n")
+        keep_slot_settings(slot_dir(layout, slot_number), staging_dir)
+
+
+def keep_slot_settings(old_slot_dir, staging_dir):
+    for name in NAMES_KEPT_ACROSS_RESET:
+        kept = old_slot_dir / name
+        if kept.is_dir():
+            shutil.copytree(kept, staging_dir / name, symlinks=True)
+        elif kept.exists():
+            shutil.copy2(kept, staging_dir / name)
 
 
 def start_slot(layout, slot_number, gui=False):
@@ -105,11 +140,14 @@ def start_slot(layout, slot_number, gui=False):
     slot_image = image_path(slot_dir(layout, slot_number))
     if not slot_image.exists():
         raise FileNotFoundError(f"{slot_image} does not exist; run `pds slot {slot_number} reset` first")
+    ports = slot_ports(layout, slot_number)
+    environment = pharo_environment(ports["sis"], ports["ripple"])
+    ensure_pharo_ports_available(environment)
     command = pharo_ui_command(layout, slot_image) if gui else keep_alive_command(layout, slot_image)
     with open(slot_dir(layout, slot_number) / "pharo.log", "ab") as log:
         process = subprocess.Popen(
             command,
-            env=pharo_environment(slot_port(slot_number)),
+            env=environment,
             stdin=subprocess.DEVNULL,
             stdout=log,
             stderr=subprocess.STDOUT,

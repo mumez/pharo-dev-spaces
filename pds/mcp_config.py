@@ -20,7 +20,7 @@ import os
 import sys
 from pathlib import Path
 
-from pds.slot import is_slot_running, slot_port
+from pds.slot import is_slot_running, slot_ports
 
 
 def cursor_smalltalk_dev_servers():
@@ -152,8 +152,8 @@ def _warn_if_slot_stopped(layout, slot_number):
         )
 
 
-def _exec_with_slot_port(slot_number, command):
-    os.environ["SIS_PORT"] = str(slot_port(slot_number))
+def _exec_with_slot_port(layout, slot_number, command):
+    os.environ["SIS_PORT"] = str(slot_ports(layout, slot_number)["sis"])
     os.execvp(command[0], command)
 
 
@@ -163,7 +163,7 @@ def launch_claude(layout, slot_number, claude_arguments, workdir=None):
     _warn_unless_smalltalk_dev_plugin_follows_sis_port()
     workdir = agent_workdir(workdir)
     os.chdir(workdir)
-    _exec_with_slot_port(slot_number, ["claude", *claude_arguments])
+    _exec_with_slot_port(layout, slot_number, ["claude", *claude_arguments])
 
 
 def launch_cursor_agent(layout, slot_number, cursor_arguments, workdir=None, approve_mcps=False):
@@ -171,4 +171,6 @@ def launch_cursor_agent(layout, slot_number, cursor_arguments, workdir=None, app
     _warn_if_slot_stopped(layout, slot_number)
     workdir = agent_workdir(workdir)
     write_cursor_mcp_config(workdir)
-    _exec_with_slot_port(slot_number, cursor_agent_command(workdir, cursor_arguments, approve_mcps=approve_mcps))
+    _exec_with_slot_port(
+        layout, slot_number, cursor_agent_command(workdir, cursor_arguments, approve_mcps=approve_mcps)
+    )

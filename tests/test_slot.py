@@ -7,12 +7,14 @@ import urllib.request
 import pytest
 
 from pds import slot
+from pds.pharo import PortInUseError
 from pds.slot import (
     is_slot_running,
     reset_slot,
     slot_dir,
     slot_origin_dir,
     slot_port,
+    slot_ports,
     slot_status,
     start_slot,
     stop_slot,
@@ -29,6 +31,57 @@ def test_slot_port_is_8086_plus_slot_number(slot_number, port):
 def test_slot_number_outside_1_to_3_is_rejected(slot_number):
     with pytest.raises(ValueError):
         slot_port(slot_number)
+
+
+def write_ports_file(layout, slot_number, overrides):
+    slot_dir(layout, slot_number).mkdir(parents=True, exist_ok=True)
+    (slot_dir(layout, slot_number) / "ports.json").write_text(json.dumps(overrides))
+
+
+def test_slot_ports_default_to_8086_plus_n_and_ripple_1000_above(layout):
+    assert slot_ports(layout, 3) == {"sis": 8089, "ripple": 9089}
+
+
+def test_ports_file_overrides_only_the_keys_it_contains(layout):
+    write_ports_file(layout, 3, {"ripple": 9189})
+
+    assert slot_ports(layout, 3) == {"sis": 8089, "ripple": 9189}
+
+
+def test_ripple_port_follows_overridden_sis_port(layout):
+    write_ports_file(layout, 2, {"sis": 8188})
+
+    assert slot_ports(layout, 2) == {"sis": 8188, "ripple": 9188}
+
+
+def test_ports_file_with_unknown_key_is_rejected(layout):
+    write_ports_file(layout, 1, {"sisPort": 8187})
+
+    with pytest.raises(ValueError, match="sisPort"):
+        slot_ports(layout, 1)
+
+
+def test_reset_slot_keeps_ports_file(layout):
+    make_image_dir(layout.plain_dir)
+    make_image_dir(layout.dev_base_dir)
+    write_ports_file(layout, 3, {"ripple": 9189})
+
+    reset_slot(layout, 3)
+
+    assert slot_ports(layout, 3) == {"sis": 8089, "ripple": 9189}
+
+
+def test_reset_slot_keeps_agentic_browser_settings(layout):
+    make_image_dir(layout.plain_dir)
+    make_image_dir(layout.dev_base_dir)
+    settings_file = slot_dir(layout, 1) / "agentic-browser" / "nested" / "settings.json"
+    settings_file.parent.mkdir(parents=True)
+    settings_file.write_text('{"model": "custom"}')
+
+    reset_slot(layout, 1)
+
+    assert settings_file.read_text() == '{"model": "custom"}'
+    assert (slot_dir(layout, 1) / "Pharo.image").read_text() == "image"
 
 
 def test_slot_origin_prefers_current_snapshot(layout):
@@ -114,6 +167,7 @@ def test_status_of_running_slot_reports_pid_and_port(layout):
     assert slot_status(layout, 2) == {
         "slot": 2,
         "port": 8088,
+        "ripplePort": 9088,
         "hasImage": True,
         "running": True,
         "pid": os.getpid(),
@@ -125,6 +179,7 @@ def test_status_of_slot_never_reset_is_free_without_image(layout):
     assert slot_status(layout, 3) == {
         "slot": 3,
         "port": 8089,
+        "ripplePort": 9089,
         "hasImage": False,
         "running": False,
         "pid": None,
@@ -155,6 +210,22 @@ def test_start_slot_requires_reset_first(layout):
         start_slot(layout, 1)
 
 
+def test_start_slot_refuses_when_slot_ports_are_in_use(layout, monkeypatch):
+    make_image_dir(slot_dir(layout, 3))
+    checked_ports = []
+
+    def port_in_use(environment):
+        checked_ports.append(environment["PHARO_RIPPLE_PORT"])
+        raise PortInUseError("Ripple port 9089 is already in use")
+
+    monkeypatch.setattr(slot, "ensure_pharo_ports_available", port_in_use)
+
+    with pytest.raises(PortInUseError):
+        start_slot(layout, 3)
+    assert checked_ports == ["9089"]
+    assert not (slot_dir(layout, 3) / "pharo.pid").exists()
+
+
 def test_start_slot_launches_headless_image_on_slot_port(layout, monkeypatch):
     make_image_dir(slot_dir(layout, 3))
     launches = []
@@ -166,6 +237,7 @@ def test_start_slot_launches_headless_image_on_slot_port(layout, monkeypatch):
             launches.append((command, kwargs))
 
     monkeypatch.setattr(slot.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(slot, "ensure_pharo_ports_available", lambda environment: None)
 
     start_slot(layout, 3)
 
@@ -176,6 +248,26 @@ def test_start_slot_launches_headless_image_on_slot_port(layout, monkeypatch):
     assert kwargs["env"]["PHARO_SIS_PORT"] == "8089"
     assert kwargs["start_new_session"] is True
     assert (slot_dir(layout, 3) / "pharo.pid").read_text() == "4242"
+
+
+def test_start_slot_uses_ports_file(layout, monkeypatch):
+    make_image_dir(slot_dir(layout, 3))
+    write_ports_file(layout, 3, {"ripple": 9189})
+    launches = []
+
+    class FakePopen:
+        pid = 6262
+
+        def __init__(self, command, **kwargs):
+            launches.append(kwargs)
+
+    monkeypatch.setattr(slot.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(slot, "ensure_pharo_ports_available", lambda environment: None)
+
+    start_slot(layout, 3)
+
+    assert launches[0]["env"]["PHARO_SIS_PORT"] == "8089"
+    assert launches[0]["env"]["PHARO_RIPPLE_PORT"] == "9189"
 
 
 def test_start_slot_gui_launches_pharo_ui_on_slot_port(layout, monkeypatch):
@@ -189,6 +281,7 @@ def test_start_slot_gui_launches_pharo_ui_on_slot_port(layout, monkeypatch):
             launches.append((command, kwargs))
 
     monkeypatch.setattr(slot.subprocess, "Popen", FakePopen)
+    monkeypatch.setattr(slot, "ensure_pharo_ports_available", lambda environment: None)
 
     start_slot(layout, 2, gui=True)
 
