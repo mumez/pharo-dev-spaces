@@ -5,7 +5,7 @@ import sys
 from pds.baseline import project_entry
 from pds.dev_base import prepare_dev_base, run_dev_base
 from pds.layout import Layout
-from pds.mcp_config import launch_claude, launch_cursor_agent
+from pds.mcp_config import launch_claude, launch_cursor_agent, launch_opencode
 from pds.projects import add_project_entry
 from pds.setup_plain import setup_plain
 from pds.slot import SLOT_NUMBERS, reset_slot, slot_status, start_slot, stop_slot
@@ -80,6 +80,22 @@ def build_parser():
             without_leading_double_dash(args.cursor_agent_arguments),
             workdir=args.workdir,
             approve_mcps=args.approve_mcps,
+        )
+    )
+
+    opencode_parser = slot_actions.add_parser("opencode", help="run opencode with MCP pointed at the slot")
+    opencode_parser.add_argument(
+        "--workdir",
+        default=None,
+        help="directory opencode runs in and for opencode.json (default: cwd)",
+    )
+    opencode_parser.add_argument("opencode_arguments", nargs=argparse.REMAINDER, help="passed to opencode (after --)")
+    opencode_parser.set_defaults(
+        handler=lambda layout, args: launch_opencode(
+            layout,
+            args.slot_number,
+            without_leading_double_dash(args.opencode_arguments),
+            workdir=args.workdir,
         )
     )
 

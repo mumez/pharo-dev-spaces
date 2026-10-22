@@ -13,7 +13,18 @@ Cursor: has no --mcp-config flag. It loads `<workdir>/.cursor/mcp.json`.
 `SIS_PORT=8086+N` in the process environment. Cursor does not support
 `${env:NAME:-default}`, so opening the project outside pds may leave an unset
 SIS_PORT; pds warns when it changes the file.
+
+opencode: has no --mcp-config flag. It loads `<workdir>/opencode.json`.
+`pds slot N opencode [--workdir DIR]` uses DIR (default: cwd), merges smalltalk
+servers into that directory's `opencode.json` with
+`"SIS_PORT": "{env:SIS_PORT}"` (opencode uses single-brace `{env:NAME}`
+expansion), and sets `SIS_PORT=8086+N` in the process environment. opencode has
+no directory flag, so pds changes directory before exec. pds warns when it
+changes the file.
 """
+
+SMALLTALK_INTEROP = "git+https://github.com/mumez/smalltalk-interop-mcp-server.git"
+SMALLTALK_VALIDATOR = "git+https://github.com/mumez/smalltalk-validator-mcp-server.git@main"
 
 import json
 import os
@@ -28,20 +39,27 @@ def cursor_smalltalk_dev_servers():
     return {
         "smalltalk-interop": {
             "command": "uvx",
-            "args": [
-                "--from",
-                "git+https://github.com/mumez/smalltalk-interop-mcp-server.git",
-                "smalltalk-interop-mcp-server",
-            ],
+            "args": ["--from", SMALLTALK_INTEROP, "smalltalk-interop-mcp-server"],
             "env": {"SIS_PORT": "${env:SIS_PORT}"},
         },
         "smalltalk-validator": {
             "command": "uvx",
-            "args": [
-                "--from",
-                "git+https://github.com/mumez/smalltalk-validator-mcp-server.git@main",
-                "smalltalk-validator-mcp-server",
-            ],
+            "args": ["--from", SMALLTALK_VALIDATOR, "smalltalk-validator-mcp-server"],
+        },
+    }
+
+
+def opencode_smalltalk_dev_servers():
+    """smalltalk-dev MCP servers for opencode: port from process env via opencode's `{env:NAME}` expansion."""
+    return {
+        "smalltalk-interop": {
+            "type": "local",
+            "command": ["uvx", "--from", SMALLTALK_INTEROP, "smalltalk-interop-mcp-server"],
+            "environment": {"SIS_PORT": "{env:SIS_PORT}"},
+        },
+        "smalltalk-validator": {
+            "type": "local",
+            "command": ["uvx", "--from", SMALLTALK_VALIDATOR, "smalltalk-validator-mcp-server"],
         },
     }
 
@@ -58,6 +76,22 @@ def cursor_mcp_config(existing=None):
         "mcpServers": {
             **existing.get("mcpServers", {}),
             **cursor_smalltalk_dev_servers(),
+        },
+    }
+
+
+def opencode_mcp_config(existing=None):
+    """opencode MCP config: merge pds servers into any existing `opencode.json`.
+
+    Existing servers are kept; smalltalk-dev overrides same-named project
+    servers. SIS_PORT is `{env:SIS_PORT}`.
+    """
+    existing = existing or {}
+    return {
+        **existing,
+        "mcp": {
+            **existing.get("mcp", {}),
+            **opencode_smalltalk_dev_servers(),
         },
     }
 
@@ -94,6 +128,22 @@ def write_cursor_mcp_config(workdir):
             f"pds: warning: merged smalltalk MCP servers into {path} "
             f"(SIS_PORT=${{env:SIS_PORT}}); outside pds set SIS_PORT or expect port 8086. "
             f"Cursor does not support ${{env:SIS_PORT:-8086}}.",
+            file=sys.stderr,
+        )
+    return written
+
+
+def write_opencode_mcp_config(workdir):
+    """Merge pds MCP servers into workdir/opencode.json (create if missing)."""
+    path = Path(workdir) / "opencode.json"
+    before = path.read_text() if path.exists() else None
+    config = opencode_mcp_config(existing=_read_mcp_json(path))
+    written = _write_mcp_json(path, config)
+    after = written.read_text()
+    if before != after:
+        print(
+            f"pds: warning: merged smalltalk MCP servers into {path} "
+            f"(SIS_PORT={{env:SIS_PORT}}); outside pds set SIS_PORT or expect port 8086.",
             file=sys.stderr,
         )
     return written
@@ -155,6 +205,15 @@ def _warn_if_slot_stopped(layout, slot_number):
 def _exec_with_slot_port(layout, slot_number, command):
     os.environ["SIS_PORT"] = str(slot_ports(layout, slot_number)["sis"])
     os.execvp(command[0], command)
+
+
+def launch_opencode(layout, slot_number, opencode_arguments, workdir=None):
+    """Replace this process with opencode connected to the slot's image, running in the workdir."""
+    _warn_if_slot_stopped(layout, slot_number)
+    workdir = agent_workdir(workdir)
+    write_opencode_mcp_config(workdir)
+    os.chdir(workdir)
+    _exec_with_slot_port(layout, slot_number, ["opencode", *opencode_arguments])
 
 
 def launch_claude(layout, slot_number, claude_arguments, workdir=None):

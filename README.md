@@ -94,12 +94,17 @@ uv run pds slot 2 cursor-agent        # run Cursor Agent with MCP pointed at slo
 uv run pds slot 2 cursor-agent -- -p "/st-eval Smalltalk version"   # arguments after -- go to cursor-agent
 uv run pds slot 2 cursor-agent --workdir ./repos/Stick -- -p "fix Stick"
 uv run pds slot 2 cursor-agent --approve-mcps --workdir ./repos/Stick -- -p "fix Stick"
+uv run pds slot 2 opencode            # run opencode with MCP pointed at slot2
+uv run pds slot 2 opencode -- run "/st-eval Smalltalk version"   # arguments after -- go to opencode
+uv run pds slot 2 opencode --workdir ./repos/Stick -- run "fix Stick"
 uv run pds slot 2 down                # stop
 ```
 
 `slot N claude [--workdir DIR]` exports `SIS_PORT=8086+N` and runs `claude` in `DIR` (default: cwd). Claude has no directory flag, so pds changes into `DIR` before launching it. The smalltalk-dev plugin (>= [2.4.0](https://github.com/mumez/smalltalk-dev-plugin/releases/tag/v2.4.0)) reads `${SIS_PORT:-8086}`, so its `smalltalk-interop` connects to the slot while your user and project MCP servers stay available (no `--strict-mcp-config`). pds warns when the installed plugin still has a fixed port; update it with `claude plugin update smalltalk-dev@smalltalk-dev-marketplace`.
 
 `slot N cursor-agent [--workdir DIR]` runs `cursor-agent --workspace DIR` (`DIR` defaults to cwd). It merges `smalltalk-interop` / `smalltalk-validator` into `DIR/.cursor/mcp.json` without dropping other existing servers; on name clashes, smalltalk-dev wins. `smalltalk-interop` uses `"SIS_PORT": "${env:SIS_PORT}"` (Cursor expands `${env:NAME}` but not `${env:NAME:-default}`); `pds` exports `SIS_PORT=8086+N` on launch and warns when it changes the file. Outside pds, set `SIS_PORT` yourself or expect the server default 8086. `--approve-mcps` is off by default because it auto-approves every MCP server Cursor loads, not only smalltalk; pass `--approve-mcps` to opt in. Arguments after `--` go to `cursor-agent`. Other MCP servers come from your user-level `~/.cursor/mcp.json` as usual.
+
+`slot N opencode [--workdir DIR]` merges `smalltalk-interop` / `smalltalk-validator` into `DIR/opencode.json` (`DIR` defaults to cwd) without dropping other existing servers; on name clashes, smalltalk-dev wins. `smalltalk-interop` uses `"SIS_PORT": "{env:SIS_PORT}"` (opencode expands `{env:NAME}`); `pds` exports `SIS_PORT=8086+N` on launch and warns when it changes the file. Outside pds, set `SIS_PORT` yourself or expect the server default 8086. opencode has no directory flag, so pds changes into `DIR` before launching it. Arguments after `--` go to `opencode` (e.g. `run "..."` for non-interactive mode). Other MCP servers come from your `~/.config/opencode/opencode.json` as usual.
 
 `status` / `list-slots` include `origin`, recorded by `reset`: `{"source": "snapshots/current", "snapshot": "<date>", "builtAt": "<date>T<time>"}` (the latest `snapshots/<date>.json` manifest at reset time and its `builtAt`; `null` for manifests written before `builtAt` was recorded) or `{"source": "dev-base", "snapshot": null, "builtAt": null}`. It is `null` for a slot that was never reset (or was reset by an older pds).
 

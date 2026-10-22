@@ -10,7 +10,10 @@ from pds.mcp_config import (
     installed_smalltalk_dev_plugin_follows_sis_port,
     launch_claude,
     launch_cursor_agent,
+    launch_opencode,
+    opencode_mcp_config,
     write_cursor_mcp_config,
+    write_opencode_mcp_config,
 )
 
 
@@ -84,6 +87,96 @@ def test_cursor_agent_command_can_opt_in_to_approve_mcps(tmp_path):
     command = cursor_agent_command(workdir, ["-p", "hi"], approve_mcps=True)
 
     assert command == ["cursor-agent", "--workspace", str(workdir), "--approve-mcps", "-p", "hi"]
+
+
+def test_opencode_mcp_config_uses_env_interpolation_for_sis_port():
+    servers = opencode_mcp_config()["mcp"]
+
+    assert servers["smalltalk-interop"]["environment"]["SIS_PORT"] == "{env:SIS_PORT}"
+    assert "smalltalk-validator" in servers
+
+
+def test_opencode_mcp_config_merges_into_existing_servers_without_dropping_them():
+    existing = {
+        "mcp": {
+            "playwright": {"type": "local", "command": ["npx", "-y", "@playwright/mcp"]},
+            "smalltalk-interop": {"type": "local", "command": ["other"], "environment": {"SIS_PORT": "9999"}},
+        },
+        "keepThisTopLevel": True,
+    }
+
+    merged = opencode_mcp_config(existing=existing)
+
+    assert merged["keepThisTopLevel"] is True
+    assert merged["mcp"]["playwright"] == existing["mcp"]["playwright"]
+    assert merged["mcp"]["smalltalk-interop"]["environment"]["SIS_PORT"] == "{env:SIS_PORT}"
+    assert "smalltalk-validator" in merged["mcp"]
+
+
+def test_write_opencode_mcp_config_preserves_existing_project_servers_and_warns(tmp_path, capsys):
+    workdir = tmp_path / "Stick"
+    workdir.mkdir()
+    path = workdir / "opencode.json"
+    path.write_text(json.dumps({"mcp": {"my-server": {"type": "local", "command": ["true"]}}}) + "\n")
+
+    write_opencode_mcp_config(workdir)
+
+    servers = json.loads(path.read_text())["mcp"]
+    assert servers["my-server"] == {"type": "local", "command": ["true"]}
+    assert servers["smalltalk-interop"]["environment"]["SIS_PORT"] == "{env:SIS_PORT}"
+    assert "merged smalltalk MCP servers" in capsys.readouterr().err
+
+
+def test_write_opencode_mcp_config_does_not_warn_when_unchanged(tmp_path, capsys):
+    workdir = tmp_path / "Stick"
+    write_opencode_mcp_config(workdir)
+    capsys.readouterr()
+
+    write_opencode_mcp_config(workdir)
+
+    assert capsys.readouterr().err == ""
+
+
+def test_launch_opencode_defaults_workdir_to_cwd(layout, monkeypatch, capsys, tmp_path):
+    executed = []
+    changed_dirs = []
+    workdir = tmp_path / "cwd-project"
+    workdir.mkdir()
+    monkeypatch.delenv("SIS_PORT", raising=False)
+    monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
+    monkeypatch.setattr(mcp_config.os, "chdir", changed_dirs.append)
+    monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(workdir))
+
+    launch_opencode(layout, 2, ["run", "/st-eval Smalltalk version"])
+
+    err = capsys.readouterr().err
+    assert "pds slot 2 up" in err
+    assert "merged smalltalk MCP servers" in err
+    assert json.loads((workdir / "opencode.json").read_text()) == opencode_mcp_config()
+    assert mcp_config.os.environ["SIS_PORT"] == "8088"
+    assert changed_dirs == [workdir.resolve()]
+    assert executed[0] == ["opencode", "run", "/st-eval Smalltalk version"]
+
+
+def test_launch_opencode_with_workdir_sets_sis_port_for_each_slot(layout, monkeypatch, capsys, tmp_path):
+    executed = []
+    changed_dirs = []
+    stick = tmp_path / "Stick"
+    stick.mkdir()
+    monkeypatch.delenv("SIS_PORT", raising=False)
+    monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
+    monkeypatch.setattr(mcp_config.os, "chdir", changed_dirs.append)
+
+    launch_opencode(layout, 1, ["run", "fix tests"], workdir=stick)
+    assert mcp_config.os.environ["SIS_PORT"] == "8087"
+
+    launch_opencode(layout, 3, ["run", "fix tests"], workdir=stick)
+
+    config = json.loads((stick / "opencode.json").read_text())
+    assert config["mcp"]["smalltalk-interop"]["environment"]["SIS_PORT"] == "{env:SIS_PORT}"
+    assert mcp_config.os.environ["SIS_PORT"] == "8089"
+    assert changed_dirs == [stick.resolve(), stick.resolve()]
+    assert executed[-1] == ["opencode", "run", "fix tests"]
 
 
 def test_agent_workdir_defaults_to_cwd(monkeypatch, tmp_path):
