@@ -96,10 +96,72 @@ def opencode_mcp_config(existing=None):
     }
 
 
+def _skip_jsonc_ws_and_comments(text, i):
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c in " \t\r\n":
+            i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] != "\n":
+                i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "*":
+            i += 2
+            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
+                i += 1
+            i += 2
+        else:
+            break
+    return i
+
+
+def _jsonc_to_json(text):
+    """Strip JSONC comments and trailing commas so strict `json.loads` can parse them."""
+    out = []
+    i = 0
+    n = len(text)
+    in_string = False
+    escape = False
+    while i < n:
+        c = text[i]
+        if in_string:
+            out.append(c)
+            if escape:
+                escape = False
+            elif c == "\\":
+                escape = True
+            elif c == '"':
+                in_string = False
+            i += 1
+        elif c == '"':
+            in_string = True
+            out.append(c)
+            i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] != "\n":
+                i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "*":
+            i += 2
+            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
+                i += 1
+            i += 2
+        elif c == ",":
+            j = _skip_jsonc_ws_and_comments(text, i + 1)
+            if j < n and text[j] in "}]":
+                i += 1
+            else:
+                out.append(c)
+                i += 1
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
 def _read_mcp_json(path):
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    return json.loads(_jsonc_to_json(path.read_text()))
 
 
 def _write_mcp_json(path, config):
@@ -116,37 +178,47 @@ def agent_workdir(workdir=None):
     return workdir
 
 
-def write_cursor_mcp_config(workdir):
-    """Merge pds MCP servers into workdir/.cursor/mcp.json (create if missing)."""
-    path = Path(workdir) / ".cursor" / "mcp.json"
+def _merge_smalltalk_dev_servers(workdir, config_relpath, build_config, warning_template):
+    """Merge smalltalk MCP servers into workdir/<config_relpath>, warning when the file changes.
+
+    Refuses to write through a symlink so a repo-provided symlink cannot rewrite a
+    file outside the workdir (e.g. the user's global opencode.json).
+    """
+    path = Path(workdir) / config_relpath
+    if path.is_symlink():
+        raise FileExistsError(
+            f"pds: refusing to merge into {path}: it is a symlink; remove it or point it inside the workdir"
+        )
     before = path.read_text() if path.exists() else None
-    config = cursor_mcp_config(existing=_read_mcp_json(path))
+    config = build_config(existing=_read_mcp_json(path))
     written = _write_mcp_json(path, config)
     after = written.read_text()
     if before != after:
-        print(
-            f"pds: warning: merged smalltalk MCP servers into {path} "
-            f"(SIS_PORT=${{env:SIS_PORT}}); outside pds set SIS_PORT or expect port 8086. "
-            f"Cursor does not support ${{env:SIS_PORT:-8086}}.",
-            file=sys.stderr,
-        )
+        print(warning_template.format(path=path), file=sys.stderr)
     return written
+
+
+def write_cursor_mcp_config(workdir):
+    """Merge pds MCP servers into workdir/.cursor/mcp.json (create if missing)."""
+    return _merge_smalltalk_dev_servers(
+        workdir,
+        Path(".cursor") / "mcp.json",
+        cursor_mcp_config,
+        "pds: warning: merged smalltalk MCP servers into {path} "
+        "(SIS_PORT=${{env:SIS_PORT}}); outside pds set SIS_PORT or expect port 8086. "
+        "Cursor does not support ${{env:SIS_PORT:-8086}}.",
+    )
 
 
 def write_opencode_mcp_config(workdir):
     """Merge pds MCP servers into workdir/opencode.json (create if missing)."""
-    path = Path(workdir) / "opencode.json"
-    before = path.read_text() if path.exists() else None
-    config = opencode_mcp_config(existing=_read_mcp_json(path))
-    written = _write_mcp_json(path, config)
-    after = written.read_text()
-    if before != after:
-        print(
-            f"pds: warning: merged smalltalk MCP servers into {path} "
-            f"(SIS_PORT={{env:SIS_PORT}}); outside pds set SIS_PORT or expect port 8086.",
-            file=sys.stderr,
-        )
-    return written
+    return _merge_smalltalk_dev_servers(
+        workdir,
+        Path("opencode.json"),
+        opencode_mcp_config,
+        "pds: warning: merged smalltalk MCP servers into {path} "
+        "(SIS_PORT={{env:SIS_PORT}}); outside pds set SIS_PORT or expect port 8086.",
+    )
 
 
 def _claude_config_dir():

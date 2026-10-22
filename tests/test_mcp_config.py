@@ -137,6 +137,39 @@ def test_write_opencode_mcp_config_does_not_warn_when_unchanged(tmp_path, capsys
     assert capsys.readouterr().err == ""
 
 
+def test_write_opencode_mcp_config_parses_jsonc_with_comments_and_trailing_commas(tmp_path):
+    workdir = tmp_path / "Stick"
+    workdir.mkdir()
+    path = workdir / "opencode.json"
+    path.write_text(
+        "{\n"
+        '  "$schema": "https://opencode.ai/config.json", // keep URLs intact\n'
+        '  "mcp": {\n'
+        '    "playwright": {"type": "local", "command": ["npx", "-y", "@playwright/mcp"]}, // trailing ok\n'
+        "  },\n"
+        "}\n"
+    )
+
+    write_opencode_mcp_config(workdir)
+
+    servers = json.loads(path.read_text())["mcp"]
+    assert servers["smalltalk-interop"]["environment"]["SIS_PORT"] == "{env:SIS_PORT}"
+    assert servers["playwright"]["command"] == ["npx", "-y", "@playwright/mcp"]
+
+
+def test_write_opencode_mcp_config_refuses_symlinked_config(tmp_path):
+    workdir = tmp_path / "Stick"
+    workdir.mkdir()
+    target = tmp_path / "outside.json"
+    target.write_text("{}")
+    (workdir / "opencode.json").symlink_to(target)
+
+    with pytest.raises(FileExistsError, match="symlink"):
+        write_opencode_mcp_config(workdir)
+
+    assert target.read_text() == "{}"
+
+
 def test_launch_opencode_defaults_workdir_to_cwd(layout, monkeypatch, capsys, tmp_path):
     executed = []
     changed_dirs = []
