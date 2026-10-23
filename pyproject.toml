@@ -2,6 +2,8 @@
 name = "pharo-dev-spaces"
 version = "0.1.0"
 description = "Disposable Pharo images and daily snapshots for AI coding agents"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = []
 

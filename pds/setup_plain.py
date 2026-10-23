@@ -4,6 +4,8 @@ import subprocess
 
 def setup_plain(layout, version, force=False):
     """Download a plain Pharo image + VM from get.pharo.org into plain-pharo/."""
+    if not version.isdecimal():
+        raise ValueError(f"Pharo version must be digits like 140, got {version!r}")
     if layout.plain_dir.exists():
         if not force:
             raise FileExistsError(f"{layout.plain_dir} already exists (use --force to replace it)")
