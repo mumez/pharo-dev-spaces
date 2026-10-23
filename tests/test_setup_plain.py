@@ -38,3 +38,14 @@ def test_setup_plain_replaces_existing_plain_dir_when_forced(layout, monkeypatch
     setup_plain(layout, version="140", force=True)
 
     assert not (layout.plain_dir / "old.image").exists()
+
+
+@pytest.mark.parametrize("version", ["", "14.0", "140; rm -rf ~", "$(id)"])
+def test_setup_plain_rejects_non_numeric_version_before_touching_plain_dir(layout, monkeypatch, version):
+    layout.plain_dir.mkdir()
+    monkeypatch.setattr(subprocess, "run", lambda command, **kw: pytest.fail("must not run the installer"))
+
+    with pytest.raises(ValueError):
+        setup_plain(layout, version=version, force=True)
+
+    assert layout.plain_dir.is_dir()
