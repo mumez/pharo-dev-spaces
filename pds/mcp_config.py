@@ -6,7 +6,7 @@ Claude: the smalltalk-dev plugin (>= 2.4.0) reads `${SIS_PORT:-8086}`, so
 has no directory flag, so pds changes directory before exec. pds warns when the
 installed plugin still has a fixed port.
 
-Cursor: has no --mcp-config flag. It loads `<workdir>/.cursor/mcp.json`.
+Cursor: loads `<workdir>/.cursor/mcp.json`.
 `pds slot N cursor-agent [--workdir DIR]` uses DIR (default: cwd) as
 `cursor-agent --workspace`, merges smalltalk servers into that directory's
 `.cursor/mcp.json` with `"SIS_PORT": "${env:SIS_PORT}"`, and sets
@@ -14,7 +14,7 @@ Cursor: has no --mcp-config flag. It loads `<workdir>/.cursor/mcp.json`.
 `${env:NAME:-default}`, so opening the project outside pds may leave an unset
 SIS_PORT; pds warns when it changes the file.
 
-opencode: has no --mcp-config flag. It loads `<workdir>/opencode.json`.
+opencode: loads `<workdir>/opencode.json`.
 `pds slot N opencode [--workdir DIR]` uses DIR (default: cwd), merges smalltalk
 servers into that directory's `opencode.json` with
 `"SIS_PORT": "{env:SIS_PORT}"` (opencode uses single-brace `{env:NAME}`
