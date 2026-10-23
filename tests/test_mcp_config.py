@@ -4,6 +4,7 @@ import pytest
 
 from pds import mcp_config
 from pds.mcp_config import (
+    _jsonc_to_json,
     agent_workdir,
     cursor_agent_command,
     cursor_mcp_config,
@@ -168,6 +169,52 @@ def test_write_opencode_mcp_config_refuses_symlinked_config(tmp_path):
         write_opencode_mcp_config(workdir)
 
     assert target.read_text() == "{}"
+
+
+def test_write_cursor_mcp_config_refuses_symlinked_directory_leading_outside(tmp_path):
+    workdir = tmp_path / "Stick"
+    workdir.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "mcp.json").write_text("{}")
+    (workdir / ".cursor").symlink_to(outside)
+
+    with pytest.raises(FileExistsError, match="symlink"):
+        write_cursor_mcp_config(workdir)
+
+    assert (outside / "mcp.json").read_text() == "{}"
+
+
+def test_write_opencode_mcp_config_follows_symlink_inside_workdir(tmp_path):
+    workdir = tmp_path / "Stick"
+    (workdir / "config").mkdir(parents=True)
+    target = workdir / "config" / "opencode.json"
+    target.write_text("{}")
+    (workdir / "opencode.json").symlink_to(target)
+
+    write_opencode_mcp_config(workdir)
+
+    assert "smalltalk-interop" in json.loads(target.read_text())["mcp"]
+
+
+@pytest.mark.parametrize(
+    ("jsonc", "expected"),
+    [
+        ('{"a": 1 /* block */, "b": 2}', {"a": 1, "b": 2}),
+        ('{"a": /* multi\nline */ 1}', {"a": 1}),
+        ('{"url": "https://example.com/*not-a-comment*/"}', {"url": "https://example.com/*not-a-comment*/"}),
+        ('{"q": "say \\"hi\\" // not a comment"}', {"q": 'say "hi" // not a comment'}),
+        ('{"a": 1// comment\n}', {"a": 1}),
+        ('{"a": [1, 2, /* c */ ], }', {"a": [1, 2]}),
+        ('{"a": "x,}"}', {"a": "x,}"}),
+    ],
+)
+def test_jsonc_to_json_strips_comments_and_trailing_commas_only_outside_strings(jsonc, expected):
+    assert json.loads(_jsonc_to_json(jsonc)) == expected
+
+
+def test_jsonc_to_json_drops_unterminated_block_comment_to_end_of_text():
+    assert _jsonc_to_json('{"a": 1} /* never closed') == '{"a": 1} '
 
 
 def test_launch_opencode_defaults_workdir_to_cwd(layout, monkeypatch, capsys, tmp_path):

@@ -96,22 +96,26 @@ def opencode_mcp_config(existing=None):
     }
 
 
+def _skip_jsonc_comment(text, i):
+    """Index just past a `//` or `/* */` comment starting at i (i itself when there is none)."""
+    if text.startswith("//", i):
+        end = text.find("\n", i)
+        return len(text) if end == -1 else end
+    if text.startswith("/*", i):
+        end = text.find("*/", i + 2)
+        return len(text) if end == -1 else end + 2
+    return i
+
+
 def _skip_jsonc_ws_and_comments(text, i):
-    n = len(text)
-    while i < n:
-        c = text[i]
-        if c in " \t\r\n":
+    while i < len(text):
+        if text[i] in " \t\r\n":
             i += 1
-        elif c == "/" and i + 1 < n and text[i + 1] == "/":
-            while i < n and text[i] != "\n":
-                i += 1
-        elif c == "/" and i + 1 < n and text[i + 1] == "*":
-            i += 2
-            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
-                i += 1
-            i += 2
-        else:
+            continue
+        after_comment = _skip_jsonc_comment(text, i)
+        if after_comment == i:
             break
+        i = after_comment
     return i
 
 
@@ -137,14 +141,8 @@ def _jsonc_to_json(text):
             in_string = True
             out.append(c)
             i += 1
-        elif c == "/" and i + 1 < n and text[i + 1] == "/":
-            while i < n and text[i] != "\n":
-                i += 1
-        elif c == "/" and i + 1 < n and text[i + 1] == "*":
-            i += 2
-            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
-                i += 1
-            i += 2
+        elif (after_comment := _skip_jsonc_comment(text, i)) != i:
+            i = after_comment
         elif c == ",":
             j = _skip_jsonc_ws_and_comments(text, i + 1)
             if j < n and text[j] in "}]":
@@ -181,13 +179,15 @@ def agent_workdir(workdir=None):
 def _merge_smalltalk_dev_servers(workdir, config_relpath, build_config, warning_template):
     """Merge smalltalk MCP servers into workdir/<config_relpath>, warning when the file changes.
 
-    Refuses to write through a symlink so a repo-provided symlink cannot rewrite a
-    file outside the workdir (e.g. the user's global opencode.json).
+    Refuses when the config path, or any directory on the way to it, is a symlink
+    resolving outside the workdir, so a repo-provided symlink cannot rewrite a file
+    outside it (e.g. the user's global opencode.json).
     """
     path = Path(workdir) / config_relpath
-    if path.is_symlink():
+    if not path.resolve().is_relative_to(Path(workdir).resolve()):
         raise FileExistsError(
-            f"pds: refusing to merge into {path}: it is a symlink; remove it or point it inside the workdir"
+            f"pds: refusing to merge into {path}: a symlink resolves it outside the workdir; "
+            "remove it or point it inside the workdir"
         )
     before = path.read_text() if path.exists() else None
     config = build_config(existing=_read_mcp_json(path))
