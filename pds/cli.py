@@ -30,7 +30,7 @@ def build_parser():
     run_dev_base_parser = commands.add_parser("run-dev-base", help="open dev-base in the GUI (verification)")
     run_dev_base_parser.set_defaults(handler=lambda layout, args: run_dev_base(layout))
 
-    slot_parser = commands.add_parser("slot", help="manage the fixed slots slot1..3: pds slot N <action>")
+    slot_parser = commands.add_parser("slot", help="manage the fixed slots slot1..5: pds slot N <action>")
     slot_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
     slot_actions = slot_parser.add_subparsers(dest="slot_action", required=True)
     for action, handler, help_text in (
