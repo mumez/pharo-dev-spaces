@@ -2,7 +2,7 @@
 
 Disposable Pharo images and daily snapshots for AI coding agents.
 
-`pds` is a small CLI that gives each AI coding agent session its own Pharo image, so 2–3 agents can work in parallel without interfering with each other. Every image has [PharoSmalltalkInteropServer (SIS)](https://github.com/mumez/PharoSmalltalkInteropServer) and [AgenticBrowser](https://github.com/mumez/pharo-agentic-browser) loaded. At the end of the day, the `develop` branches of your projects are loaded into a tested snapshot, which becomes the starting point for the next day's slots.
+`pds` is a small CLI that gives each AI coding agent session its own Pharo image, so up to 5 agents can work in parallel without interfering with each other. Every image has [PharoSmalltalkInteropServer (SIS)](https://github.com/mumez/PharoSmalltalkInteropServer) and [AgenticBrowser](https://github.com/mumez/pharo-agentic-browser) loaded. At the end of the day, the `develop` branches of your projects are loaded into a tested snapshot, which becomes the starting point for the next day's slots.
 
 Currently targets Pharo 14, Claude Code, Cursor Agent (CLI), and Linux (WSL).
 
@@ -13,15 +13,15 @@ Currently targets Pharo 14, Claude Code, Cursor Agent (CLI), and Linux (WSL).
 | plain | `plain-pharo/` | Pharo image + VM from get.pharo.org. All images share this VM and its sources file |
 | dev-base | `dev-base/` | plain + SIS + AgenticBrowser |
 | snapshot | `snapshots/current/` | dev-base (or the previous snapshot) + your projects at `origin/develop`, with all tests passing |
-| slot | `slots/slot1..3/` | A disposable copy of the snapshot (or dev-base) for one agent session |
+| slot | `slots/slot1..5/` | A disposable copy of the snapshot (or dev-base) for one agent session |
 
 Each image `pds` starts gets its own ports, so images never collide:
 
 | Image | SIS (`PHARO_SIS_PORT`) | Ripple / WebUI (`PHARO_RIPPLE_PORT`) |
 |---|---|---|
 | standalone (`run-dev-base`) | 8086 | 9086 |
-| slot N (1–3) | 8086 + N | 9086 + N |
-| snapshot build | 8090 | 9090 |
+| slot N (1–5) | 8086 + N | 9086 + N |
+| snapshot build | 8096 | 9096 |
 
 To move a slot off a port another program already uses, put `slots/slotN/ports.json` next to its image.
 Only the keys you write override the defaults (`ripple` still follows `sis` + 1000 unless given):
@@ -47,11 +47,11 @@ uv run pds run-dev-base                # optional: open dev-base in the GUI to c
 
 ## Registering projects
 
-`projects.json` lists the repositories loaded into snapshots, in load order.
+`st-projects.json` lists the repositories loaded into snapshots, in load order.
 
 ```bash
 uv run pds add-project ~/git/MyApp                       # print the entry
-uv run pds add-project ~/git/MyApp --write               # append it to projects.json
+uv run pds add-project ~/git/MyApp --write               # append it to st-projects.json
 uv run pds add-project ~/git/MyApp --groups Core,Tests --write
 ```
 
@@ -117,12 +117,12 @@ pharo-dev-spaces/
   pds/                  # the CLI (Python) and its .st scripts
   plain-pharo/          # VM + plain image
   dev-base/
-  projects.json
+  st-projects.json
   snapshots/
     current/            # image that slots start from
     <date>.json         # build manifests
   archives/<date>.tar.gz
-  slots/slot{1,2,3}/    # Pharo.image/.changes, pharo.pid, pharo.log
+  slots/slot{1..5}/    # Pharo.image/.changes, pharo.pid, pharo.log
 ```
 
 Everything except `pds/`, `tests/`, and `tasks/` is generated and ignored by git. Set `PDS_ROOT` to use a different root directory.

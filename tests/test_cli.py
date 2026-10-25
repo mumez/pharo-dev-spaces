@@ -116,7 +116,7 @@ def test_slot_opencode_passes_workdir(monkeypatch):
 
 def test_slot_number_outside_fixed_slots_is_rejected():
     with pytest.raises(SystemExit):
-        build_parser().parse_args(["slot", "4", "up"])
+        build_parser().parse_args(["slot", "6", "up"])
 
 
 def run_cli(layout, monkeypatch, capsys, *argv):
@@ -132,4 +132,6 @@ def test_slot_status_prints_one_slot_as_json(layout, monkeypatch, capsys):
 def test_list_slots_prints_every_slot_as_json(layout, monkeypatch, capsys):
     statuses = run_cli(layout, monkeypatch, capsys, "list-slots")
 
-    assert [(status["slot"], status["running"]) for status in statuses] == [(1, False), (2, False), (3, False)]
+    assert [(status["slot"], status["running"]) for status in statuses] == [
+        (slot_number, False) for slot_number in (1, 2, 3, 4, 5)
+    ]

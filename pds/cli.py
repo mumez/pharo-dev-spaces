@@ -30,7 +30,7 @@ def build_parser():
     run_dev_base_parser = commands.add_parser("run-dev-base", help="open dev-base in the GUI (verification)")
     run_dev_base_parser.set_defaults(handler=lambda layout, args: run_dev_base(layout))
 
-    slot_parser = commands.add_parser("slot", help="manage the fixed slots slot1..3: pds slot N <action>")
+    slot_parser = commands.add_parser("slot", help="manage the fixed slots slot1..5: pds slot N <action>")
     slot_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
     slot_actions = slot_parser.add_subparsers(dest="slot_action", required=True)
     for action, handler, help_text in (
@@ -104,12 +104,14 @@ def build_parser():
         handler=lambda layout, args: print_json([slot_status(layout, slot_number) for slot_number in SLOT_NUMBERS])
     )
 
-    add_project_parser = commands.add_parser("add-project", help="print a projects.json entry derived from BaselineOf")
+    add_project_parser = commands.add_parser(
+        "add-project", help="print a st-projects.json entry derived from BaselineOf"
+    )
     add_project_parser.add_argument("repository", help="path of the git repository")
     add_project_parser.add_argument(
         "--groups", default="default", help="comma-separated Metacello groups (default: default)"
     )
-    add_project_parser.add_argument("--write", action="store_true", help="append the entry to projects.json")
+    add_project_parser.add_argument("--write", action="store_true", help="append the entry to st-projects.json")
     add_project_parser.set_defaults(handler=add_project)
 
     build_snapshot_parser = commands.add_parser("build-snapshot", help="build snapshots/current from origin/develop")

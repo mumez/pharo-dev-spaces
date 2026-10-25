@@ -22,13 +22,13 @@ from pds.slot import (
 from tests.test_image_dir import make_image_dir
 
 
-@pytest.mark.parametrize("slot_number, port", [(1, 8087), (2, 8088), (3, 8089)])
+@pytest.mark.parametrize("slot_number, port", [(1, 8087), (2, 8088), (3, 8089), (4, 8090), (5, 8091)])
 def test_slot_port_is_8086_plus_slot_number(slot_number, port):
     assert default_slot_port(slot_number) == port
 
 
-@pytest.mark.parametrize("slot_number", [0, 4])
-def test_slot_number_outside_1_to_3_is_rejected(slot_number):
+@pytest.mark.parametrize("slot_number", [0, 6])
+def test_slot_number_outside_1_to_5_is_rejected(slot_number):
     with pytest.raises(ValueError):
         default_slot_port(slot_number)
 

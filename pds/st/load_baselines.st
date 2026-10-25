@@ -1,4 +1,4 @@
-"Load each repository through its baseline, in projects.json order: #( baselineName repositoryUrl groups ).
+"Load each repository through its baseline, in st-projects.json order: #( baselineName repositoryUrl groups ).
  `get` reloads a BaselineOf already in the image (incremental builds), so changed specs are not ignored.
  A local project already loaded is kept when another project references it as a dependency
  (e.g. github://... in a BaselineOf), so the local sources are not replaced by the remote ones."

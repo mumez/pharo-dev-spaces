@@ -1,4 +1,4 @@
-"""Fixed, disposable slots (slots/slot1..3) derived from the current snapshot."""
+"""Fixed, disposable slots (slots/slot1..5) derived from the current snapshot."""
 
 import json
 import os
@@ -18,7 +18,7 @@ from pds.pharo import (
 )
 from pds.snapshot import latest_manifest_path
 
-SLOT_NUMBERS = (1, 2, 3)
+SLOT_NUMBERS = (1, 2, 3, 4, 5)
 SLOT_BASE_PORT = STANDALONE_SIS_PORT  # stays free for a standalone image; slot N listens on 8086 + N
 STOP_TIMEOUT_SECONDS = 10
 ORIGIN_FILE_NAME = "origin.json"

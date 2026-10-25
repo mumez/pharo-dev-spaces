@@ -218,7 +218,7 @@ def test_reloading_a_baseline_applies_changed_methods_and_baseline(pharo_layout,
             "s nextPutAll: ((Smalltalk at: #PdsProbe) selectors sorted joinUsing: ' '); cr; "
             "print: (PackageOrganizer default hasPackage: 'PdsProbe-Added') ]."
         )
-        run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8091, timeout=120, save=True)
+        run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8097, timeout=120, save=True)
         selectors, has_added_package = result_file.read_text().splitlines()
         return selectors.split(), has_added_package == "true"
 
