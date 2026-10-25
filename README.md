@@ -47,11 +47,11 @@ uv run pds run-dev-base                # optional: open dev-base in the GUI to c
 
 ## Registering projects
 
-`projects.json` lists the repositories loaded into snapshots, in load order.
+`st-projects.json` lists the repositories loaded into snapshots, in load order.
 
 ```bash
 uv run pds add-project ~/git/MyApp                       # print the entry
-uv run pds add-project ~/git/MyApp --write               # append it to projects.json
+uv run pds add-project ~/git/MyApp --write               # append it to st-projects.json
 uv run pds add-project ~/git/MyApp --groups Core,Tests --write
 ```
 
@@ -117,7 +117,7 @@ pharo-dev-spaces/
   pds/                  # the CLI (Python) and its .st scripts
   plain-pharo/          # VM + plain image
   dev-base/
-  projects.json
+  st-projects.json
   snapshots/
     current/            # image that slots start from
     <date>.json         # build manifests

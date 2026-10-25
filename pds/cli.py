@@ -104,12 +104,14 @@ def build_parser():
         handler=lambda layout, args: print_json([slot_status(layout, slot_number) for slot_number in SLOT_NUMBERS])
     )
 
-    add_project_parser = commands.add_parser("add-project", help="print a projects.json entry derived from BaselineOf")
+    add_project_parser = commands.add_parser(
+        "add-project", help="print a st-projects.json entry derived from BaselineOf"
+    )
     add_project_parser.add_argument("repository", help="path of the git repository")
     add_project_parser.add_argument(
         "--groups", default="default", help="comma-separated Metacello groups (default: default)"
     )
-    add_project_parser.add_argument("--write", action="store_true", help="append the entry to projects.json")
+    add_project_parser.add_argument("--write", action="store_true", help="append the entry to st-projects.json")
     add_project_parser.set_defaults(handler=add_project)
 
     build_snapshot_parser = commands.add_parser("build-snapshot", help="build snapshots/current from origin/develop")

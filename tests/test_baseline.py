@@ -7,7 +7,7 @@ from pds.baseline import project_entry
 SAMPLE_REPOSITORY = Path(__file__).parent / "fixtures" / "sample-repo"
 
 
-def test_project_entry_describes_repository_for_projects_json():
+def test_project_entry_describes_repository_for_st_projects_json():
     entry = project_entry(SAMPLE_REPOSITORY)
 
     assert entry == {

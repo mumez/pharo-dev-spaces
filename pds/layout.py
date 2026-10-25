@@ -41,4 +41,4 @@ class Layout:
 
     @property
     def projects_file(self):
-        return self.root / "projects.json"
+        return self.root / "st-projects.json"

@@ -1,4 +1,4 @@
-"""Derive a projects.json entry from a repository: its BaselineOf name and srcDir.
+"""Derive a st-projects.json entry from a repository: its BaselineOf name and srcDir.
 
 Which packages to load (and in which order, per platform) is left to Metacello.
 """

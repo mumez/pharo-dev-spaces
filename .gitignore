@@ -2,7 +2,7 @@ plain-pharo/
 dev-pharo/
 dev-base/
 slots/
-projects.json
+st-projects.json
 snapshots/
 archives/
 .venv/

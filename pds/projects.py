@@ -1,4 +1,4 @@
-"""projects.json: repositories (and their packages) in load order."""
+"""st-projects.json: repositories (and their packages) in load order."""
 
 import json
 
