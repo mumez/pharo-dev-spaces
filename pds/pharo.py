@@ -4,7 +4,7 @@ import subprocess
 
 # SIS starts in every image we launch; builds use their own port so they never clash with slots or 8086.
 STANDALONE_SIS_PORT = 8086  # reserved for a lone GUI/headless image (e.g. run-dev-base)
-BUILD_SIS_PORT = 8096
+BUILD_SIS_PORT = 8096  # past slot 5 (8091); 8092-8095 stay free for future slots
 # Ripple (AgenticBrowser WebUI) also listens in every image; keep it next to the SIS port so images never share it.
 RIPPLE_PORT_OFFSET_FROM_SIS = 1000
 
