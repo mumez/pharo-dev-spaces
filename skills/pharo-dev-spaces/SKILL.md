@@ -1,6 +1,6 @@
 ---
 name: pharo-dev-spaces
-description: Operate pharo-dev-spaces (`pds`) at $PDS_HOME — build the Pharo base image (plain + dev-base), register Smalltalk projects (local repos or GitHub URLs cloned into repos/), build/rebuild daily snapshots, and reset/start slots and launch a coding agent (claude / cursor-agent / opencode) against a slot. Use this whenever the user mentions pds, pharo-dev-spaces, slots ("スロット"), snapshots ("スナップショット"), the base image / dev-base ("ベースイメージ"), st-projects.json, or asks things like "pdsのプロジェクトに追加して", "スナップショットを作成して", "ベースイメージをPharo 14で作成して", "スロット2をリセットして作業して", "空いているスロットで作業を開始して", even if they don't say "pds" explicitly but are clearly talking about Pharo images for agent sessions.
+description: Operate pharo-dev-spaces (`pds`) at $PDS_HOME, which gives each coding-agent session its own Pharo image ("slot") — build/rebuild the base image (plain + dev-base), register projects in st-projects.json (local repos or cloned GitHub URLs), build/rebuild snapshots, reset/start (headless or GUI)/stop slots, launch claude / cursor-agent / opencode in a slot to do work there (fix a bug, run all tests, ...), and answer or troubleshoot anything about these (running slots, port conflicts, base Pharo version, snapshot contents). Use whenever the user mentions pds, slots, snapshots, the base image / dev-base, or st-projects.json, e.g. "clone <URL> and add it to the projects", "create a snapshot", "build the base image with Pharo 14", "reset slot 2 and start working", "run the tests in a free slot", "which slots are running?". Not for work inside an image you are already connected to (eval, import, test) or for BaselineOf dependencies.
 ---
 
 # pharo-dev-spaces (pds)
@@ -27,11 +27,13 @@ Slot N listens on SIS port `8086+N` (Ripple `9086+N`) unless `slots/slotN/ports.
   mention it to the user if the two differ.
 - Start with the state, not assumptions: `pds list-slots` (JSON per slot: `running`, `hasImage`,
   `port`, `origin`), and `ls "$PDS_HOME"` / `cat "$PDS_HOME/st-projects.json"` for the rest.
+  The Pharo version shows in the `Pharo<ver>-*.sources` file name in `plain-pharo/` and
+  `dev-base/`; what a snapshot contains is in `snapshots/<date>.json`.
 - `prepare-dev-base` (≤30 min) and `build-snapshot` (≤60 min) are long. Run them in the background
   with output going to `$PDS_HOME/logs/<command>-<YYYYMMDD-HHMM>.log` (`mkdir -p` it first), then
   read the log when the command finishes, instead of letting a foreground call time out.
 
-## Base image — "ベースイメージをPharo 14で作成して"
+## Base image — "build the base image with Pharo 14"
 
 Pharo version → `--version`: Pharo 14 → `140`, Pharo 13 → `130` (digits only).
 
@@ -48,7 +50,7 @@ pds prepare-dev-base               # dev-base/ (loads SIS + AgenticBrowser)
 - A new dev-base invalidates the existing snapshot and slots (they were built on the old base).
   Afterwards, suggest `pds build-snapshot --full` and resetting slots.
 
-## Registering projects — "～をpdsのプロジェクトに追加して"
+## Registering projects — "add <repo> to the pds projects"
 
 `st-projects.json` lists repositories loaded into snapshots, in load order.
 
@@ -72,7 +74,7 @@ pds prepare-dev-base               # dev-base/ (loads SIS + AgenticBrowser)
 4. Show the resulting entry, and mention that the project enters slots only after the next
    `pds build-snapshot`.
 
-## Snapshots — "スナップショットを作成して"
+## Snapshots — "create a snapshot"
 
 ```bash
 pds build-snapshot          # incremental: starts from snapshots/current (daily use)
@@ -94,14 +96,14 @@ Running slots keep their old image; a slot only picks up the new snapshot on `re
 
 ### Choosing the slot
 
-- Named slot ("スロット2"): use it.
-- "空いているスロット": `pds list-slots` and take the lowest-numbered slot with `"running": false`.
+- Named slot ("slot 2"): use it.
+- "A free / available slot": `pds list-slots` and take the lowest-numbered slot with `"running": false`.
   If all 5 are running, tell the user and stop. If `pds slot N up` later fails because a port is
   in use by another program, move on to the next free slot.
 
 ### Preparing it
 
-- "リセットして" or the slot has no image (`hasImage: false`): `pds slot N reset`. Reset refuses
+- The user asked to reset, or the slot has no image (`hasImage: false`): `pds slot N reset`. Reset refuses
   while running; `pds slot N down` first only if the user asked to reset that specific slot
   (a running slot may be another agent's session — never stop one you merely picked as "free").
 - A free slot is stale when its `origin.builtAt` is older than the `builtAt` in the newest
@@ -127,11 +129,15 @@ the child agent edits Tonel files. Pick the first that applies and pass it as an
 
 `$PDS_HOME` itself is never a good workdir — it holds the pds tool, not Smalltalk code.
 
+If the task needs a project that is not in the newest `snapshots/<date>.json`, the slot image does
+not have it loaded. Tell the user and propose registering it and running `pds build-snapshot`
+(then resetting the slot) before launching the agent.
+
 ### Starting work
 
 This depends on whether the user gave a concrete task.
 
-**Task given** (e.g. "スロット2でStickのバグを直して") → run the agent non-interactively yourself:
+**Task given** (e.g. "fix the Stick bug in slot 2") → run the agent non-interactively yourself:
 
 ```bash
 pds slot N claude --workdir <dir> -- -p "<task>" --permission-mode acceptEdits
@@ -145,7 +151,7 @@ agent has none of your context). Run it in the background with output to
 permission-bypassing flags (e.g. `--dangerously-skip-permissions`, `--approve-mcps`) unless the user
 asked; if the log shows permission denials, report them and let the user decide.
 
-**No task given** ("スロット2で作業を開始して") → an interactive session can't be opened from
+**No task given** (e.g. "start working in slot 2", "reset slot 2 and work in it") → an interactive session can't be opened from
 inside your session (pds `exec`s the agent, and your own MCP connection stays on its original
 port). Prepare and start the slot, then give the user the command to run in their terminal:
 
