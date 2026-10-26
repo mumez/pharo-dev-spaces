@@ -5,9 +5,12 @@ slots/
 st-projects.json
 snapshots/
 archives/
+logs/
 .venv/
 __pycache__/
 .pytest_cache/
 crash.dmp
 PharoDebug.log
 repos/
+skills/*-workspace/
+skills/*/evals/

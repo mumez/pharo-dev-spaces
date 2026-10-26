@@ -110,11 +110,35 @@ uv run pds slot 2 down                # stop
 
 A slot counts as running only if it was started with `pds slot N up` or `pds slot N gui`, which write a pid file.
 
+## Coding agent skill
+
+`skills/pharo-dev-spaces/` is an [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) that lets a coding agent (e.g. Claude Code) operate `pds` for you, from any project. Ask it things like "create a snapshot", "clone <URL> and add it to the projects", or "run the Stick tests in a free slot". The skill runs the commands above via `uv run --project "$PDS_HOME" pds`, and follows guardrails like these:
+
+- It asks before `--force` replaces an existing base image.
+- It never stops a running slot that it only picked as free.
+- It runs long builds in the background with a log.
+- It launches a child agent in a slot non-interactively for a concrete task. Without a task, it prints the command for you to start an interactive session.
+
+To use it, copy or symlink `skills/pharo-dev-spaces/` into another project's skills directory (or point your agent's skill search path at this repo), and set `PDS_HOME` to this checkout in that project's environment.
+
+You can also install it with the [GitHub CLI](https://cli.github.com/) `gh skill install` command:
+
+```
+gh skill install mumez/pharo-dev-spaces
+```
+
+For Claude Code with a user-scoped install:
+
+```
+gh skill install mumez/pharo-dev-spaces --agent claude-code --scope user
+```
+
 ## Layout
 
 ```
 pharo-dev-spaces/
   pds/                  # the CLI (Python) and its .st scripts
+  skills/pharo-dev-spaces/   # Agent Skill for operating pds
   plain-pharo/          # VM + plain image
   dev-base/
   st-projects.json
@@ -125,7 +149,7 @@ pharo-dev-spaces/
   slots/slot{1..5}/    # Pharo.image/.changes, pharo.pid, pharo.log
 ```
 
-Everything except `pds/`, `tests/`, and `tasks/` is generated and ignored by git. Set `PDS_ROOT` to use a different root directory.
+Everything except `pds/`, `skills/`, `tests/`, and `tasks/` is generated and ignored by git. Set `PDS_ROOT` to use a different root directory.
 
 ## Development
 
