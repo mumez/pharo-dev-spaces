@@ -96,7 +96,9 @@ def test_successful_build_writes_manifest(build_layout, monkeypatch):
         "builtAt": "2026-10-13T09:30:15",
         "mode": "full",
         "base": "dev-base",
-        "repositories": [{"repository": "/repos/Historia", "baseline": "Historia", "sha": "abc123"}],
+        "repositories": [
+            {"repository": "/repos/Historia", "baseline": "Historia", "sha": "abc123", "branch": "develop"}
+        ],
         "tests": PASSED,
     }
 

@@ -4,6 +4,7 @@ import pytest
 
 from pds import cli
 from pds.cli import build_parser
+from tests.test_baseline import SAMPLE_REPOSITORY
 
 
 def test_slot_number_comes_before_the_slot_action():
@@ -135,3 +136,17 @@ def test_list_slots_prints_every_slot_as_json(layout, monkeypatch, capsys):
     assert [(status["slot"], status["running"]) for status in statuses] == [
         (slot_number, False) for slot_number in (1, 2, 3, 4, 5)
     ]
+
+
+def test_add_project_omits_default_branch(layout, monkeypatch, capsys):
+    entry = run_cli(layout, monkeypatch, capsys, "add-project", str(SAMPLE_REPOSITORY))
+
+    assert "branch" not in entry
+    assert entry["baseline"] == "Sample"
+
+
+def test_add_project_writes_requested_branch(layout, monkeypatch, capsys):
+    entry = run_cli(layout, monkeypatch, capsys, "add-project", str(SAMPLE_REPOSITORY), "--branch", "main", "--write")
+
+    assert entry["branch"] == "main"
+    assert json.loads(layout.projects_file.read_text())[0]["branch"] == "main"

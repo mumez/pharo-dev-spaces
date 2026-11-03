@@ -6,7 +6,7 @@ from pds.baseline import project_entry
 from pds.dev_base import prepare_dev_base, run_dev_base
 from pds.layout import Layout
 from pds.mcp_config import launch_claude, launch_cursor_agent, launch_opencode
-from pds.projects import add_project_entry
+from pds.projects import DEFAULT_BRANCH, add_project_entry
 from pds.setup_plain import setup_plain
 from pds.slot import SLOT_NUMBERS, reset_slot, slot_status, start_slot, stop_slot
 from pds.snapshot import build_snapshot
@@ -111,10 +111,15 @@ def build_parser():
     add_project_parser.add_argument(
         "--groups", default="default", help="comma-separated Metacello groups (default: default)"
     )
+    add_project_parser.add_argument(
+        "--branch", default=DEFAULT_BRANCH, help=f"remote branch to snapshot (default: {DEFAULT_BRANCH})"
+    )
     add_project_parser.add_argument("--write", action="store_true", help="append the entry to st-projects.json")
     add_project_parser.set_defaults(handler=add_project)
 
-    build_snapshot_parser = commands.add_parser("build-snapshot", help="build snapshots/current from origin/develop")
+    build_snapshot_parser = commands.add_parser(
+        "build-snapshot", help=f"build snapshots/current from each project's origin branch (default: {DEFAULT_BRANCH})"
+    )
     build_snapshot_parser.add_argument(
         "--full", action="store_true", help="rebuild from dev-base through the baselines"
     )
@@ -133,7 +138,7 @@ def without_leading_double_dash(arguments):
 
 
 def add_project(layout, args):
-    entry = project_entry(args.repository, args.groups.split(","))
+    entry = project_entry(args.repository, args.groups.split(","), branch=args.branch)
     print_json(entry)
     if args.write:
         add_project_entry(layout, entry)

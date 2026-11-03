@@ -2,7 +2,7 @@
 
 Disposable Pharo images and daily snapshots for AI coding agents.
 
-`pds` is a small CLI that gives each AI coding agent session its own Pharo image, so up to 5 agents can work in parallel without interfering with each other. Every image has [PharoSmalltalkInteropServer (SIS)](https://github.com/mumez/PharoSmalltalkInteropServer) and [AgenticBrowser](https://github.com/mumez/pharo-agentic-browser) loaded. At the end of the day, the `develop` branches of your projects are loaded into a tested snapshot, which becomes the starting point for the next day's slots.
+`pds` is a small CLI that gives each AI coding agent session its own Pharo image, so up to 5 agents can work in parallel without interfering with each other. Every image has [PharoSmalltalkInteropServer (SIS)](https://github.com/mumez/PharoSmalltalkInteropServer) and [AgenticBrowser](https://github.com/mumez/pharo-agentic-browser) loaded. At the end of the day, the configured branches of your projects (default: `develop`) are loaded into a tested snapshot, which becomes the starting point for the next day's slots.
 
 Currently targets Pharo 14, Claude Code, Cursor Agent (CLI), and Linux (WSL).
 
@@ -12,7 +12,7 @@ Currently targets Pharo 14, Claude Code, Cursor Agent (CLI), and Linux (WSL).
 |---|---|---|
 | plain | `plain-pharo/` | Pharo image + VM from get.pharo.org. All images share this VM and its sources file |
 | dev-base | `dev-base/` | plain + SIS + AgenticBrowser |
-| snapshot | `snapshots/current/` | dev-base (or the previous snapshot) + your projects at `origin/develop`, with all tests passing |
+| snapshot | `snapshots/current/` | dev-base (or the previous snapshot) + your projects at each origin branch (default `develop`), with all tests passing |
 | slot | `slots/slot1..5/` | A disposable copy of the snapshot (or dev-base) for one agent session |
 
 Each image `pds` starts gets its own ports, so images never collide:
@@ -53,15 +53,19 @@ uv run pds run-dev-base                # optional: open dev-base in the GUI to c
 uv run pds add-project ~/git/MyApp                       # print the entry
 uv run pds add-project ~/git/MyApp --write               # append it to st-projects.json
 uv run pds add-project ~/git/MyApp --groups Core,Tests --write
+uv run pds add-project ~/git/Other --branch main --write  # repos without origin/develop
 ```
 
 `add-project` reads only the BaselineOf name and `srcDirectory` (from `.project`). The packages to load, their order, and the platform-specific parts of the baseline are left to Metacello.
 
 ```json
 [
-  { "repository": "/home/me/git/MyApp", "baseline": "MyApp", "srcDir": "src", "groups": ["default"] }
+  { "repository": "/home/me/git/MyApp", "baseline": "MyApp", "srcDir": "src", "groups": ["default"] },
+  { "repository": "/home/me/git/Other", "baseline": "Other", "srcDir": "src", "groups": ["default"], "branch": "main" }
 ]
 ```
+
+`branch` is optional and defaults to `develop`. Snapshot builds fetch `origin/<branch>` of each repository.
 
 ## Building snapshots
 
@@ -72,7 +76,7 @@ uv run pds build-snapshot          # daily: starts from snapshots/current
 
 Both modes:
 
-1. `git fetch` each repository and extract `srcDir` at `origin/develop` into a temporary directory, without touching your working trees.
+1. `git fetch` each repository and extract `srcDir` at `origin/<branch>` (`develop` unless the entry sets `branch`) into a temporary directory, without touching your working trees.
 2. Load each baseline with Metacello (`tonel://<extracted srcDir>`, with its `groups`).
 3. Run the tests in the package directories under `srcDir` that are loaded in the image.
 4. Only if every test passes: replace `snapshots/current`, write `snapshots/<date>.json` (build time, mode, base, SHA of each repository, test results), and archive the image to `archives/<date>.tar.gz`. If a test fails, `snapshots/current` is left unchanged.

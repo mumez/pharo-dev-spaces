@@ -2,6 +2,12 @@
 
 import json
 
+DEFAULT_BRANCH = "develop"
+
+
+def branch_of(project):
+    return project.get("branch") or DEFAULT_BRANCH
+
 
 def read_projects(layout):
     if not layout.projects_file.exists():

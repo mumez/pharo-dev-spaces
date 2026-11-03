@@ -6,6 +6,8 @@ Which packages to load (and in which order, per platform) is left to Metacello.
 import re
 from pathlib import Path
 
+from pds.projects import DEFAULT_BRANCH
+
 SRC_DIRECTORY = re.compile(r"'srcDirectory'\s*:\s*'([^']*)'")
 DEFAULT_GROUP = "default"
 
@@ -23,14 +25,17 @@ def baseline_name_of(src_path):
     return baseline_dirs[0].name.removeprefix("BaselineOf")
 
 
-def project_entry(repository, group_names=(DEFAULT_GROUP,)):
+def project_entry(repository, group_names=(DEFAULT_GROUP,), branch=DEFAULT_BRANCH):
     repository = Path(repository).resolve()
     if not repository.is_dir():
         raise FileNotFoundError(f"repository {repository} does not exist")
     src_dir = src_dir_of(repository)
-    return {
+    entry = {
         "repository": str(repository),
         "baseline": baseline_name_of(repository / src_dir),
         "srcDir": src_dir,
         "groups": list(group_names),
     }
+    if branch != DEFAULT_BRANCH:
+        entry["branch"] = branch
+    return entry
