@@ -1,4 +1,4 @@
-"""Snapshot sources: the srcDir of each repository at origin/develop, extracted without touching working trees."""
+"""Snapshot sources: the srcDir of each repository at its origin branch, extracted without touching working trees."""
 
 import io
 import subprocess
@@ -6,7 +6,7 @@ import tarfile
 from dataclasses import dataclass
 from pathlib import Path
 
-SNAPSHOT_BRANCH = "develop"
+from pds.projects import branch_of
 
 
 class SourceFetchError(RuntimeError):
@@ -27,9 +27,9 @@ def git(repository, *arguments):
     return completed.stdout
 
 
-def fetch_develop_sha(repository):
-    git(repository, "fetch", "--quiet", "origin", SNAPSHOT_BRANCH)
-    return git(repository, "rev-parse", f"origin/{SNAPSHOT_BRANCH}").decode().strip()
+def fetch_branch_sha(repository, branch):
+    git(repository, "fetch", "--quiet", "origin", branch)
+    return git(repository, "rev-parse", f"origin/{branch}").decode().strip()
 
 
 def extract_src_dir(repository, sha, src_dir, target_dir):
@@ -43,7 +43,7 @@ def fetch_project_sources(projects, extract_root):
     fetched_sources = []
     for project in projects:
         repository = project["repository"]
-        sha = fetch_develop_sha(repository)
+        sha = fetch_branch_sha(repository, branch_of(project))
         src_path = extract_src_dir(repository, sha, project["srcDir"], Path(extract_root) / Path(repository).name)
         fetched_sources.append(FetchedSource(project, sha, src_path))
     return fetched_sources

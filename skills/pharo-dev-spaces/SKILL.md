@@ -59,14 +59,19 @@ pds prepare-dev-base               # dev-base/ (loads SIS + AgenticBrowser)
    - Git URL: clone into `$PDS_HOME/repos/<repo-name>` (`git clone <url> "$PDS_HOME/repos/<name>"`).
      If that directory already exists, don't overwrite it — check whether it is the same remote and
      reuse it, otherwise ask.
-2. Check the snapshot prerequisite: `build-snapshot` loads **`origin/develop`**, so run
-   `git -C <repo> ls-remote --heads origin develop`. If there's no `origin` or no `develop`
-   branch, still register the project but tell the user that snapshot builds will fail until it
-   exists. Do not create or push branches on the remote yourself.
+2. Check the snapshot prerequisite: `build-snapshot` loads **`origin/<branch>`** (`develop`
+   unless the user named another branch or the entry has `"branch"`). If the user named a
+   branch, pass `--branch`. Otherwise run `git -C <repo> ls-remote --heads origin develop`.
+   If there's no `origin` or no `develop` branch, look at the repo's default remote branch
+   (`git -C <repo> symbolic-ref refs/remotes/origin/HEAD`, or `main`/`master`) and register
+   with `--branch` that name, telling the user. If no remote branch is obvious, still register
+   the project but tell the user that snapshot builds will fail until that branch exists. Do
+   not create or push branches on the remote yourself.
 3. Register:
    ```bash
    pds add-project <repo-path> --write                      # groups default to "default"
    pds add-project <repo-path> --groups Core,Tests --write  # when the user names groups
+   pds add-project <repo-path> --branch main --write        # repos without origin/develop
    ```
    It reads the `BaselineOf*` name and `srcDirectory` (from `.project`). "no BaselineOf* package"
    means it is not a Tonel/Metacello project — report that. "already in st-projects.json" means
@@ -85,7 +90,8 @@ Choose `--full` when `snapshots/current/` doesn't exist yet, after dev-base was 
 the user says packages/classes were removed or renamed (incremental builds can't drop them).
 Otherwise use incremental. Requires `dev-base/` and a non-empty `st-projects.json`.
 
-The build fetches `origin/develop` of each project (working trees untouched), loads baselines,
+The build fetches `origin/<branch>` of each project (`develop` unless the entry sets `branch`;
+working trees untouched), loads baselines,
 runs their tests, and promotes the image only if every test passes. On success report the new
 `snapshots/<date>.json` (repositories + SHAs, test counts). On failure `snapshots/current` is
 unchanged — report the failing tests or git error from the output; don't retry blindly.
@@ -168,5 +174,5 @@ inspect the image.
 ## Reporting
 
 End with a short summary: what was run, the resulting state (e.g. slot number, SIS port,
-snapshot date, registered entry), and anything the user must do next (e.g. "create a develop
-branch", "run this command to start the session").
+snapshot date, registered entry), and anything the user must do next (e.g. "set `branch` in
+st-projects.json", "run this command to start the session").

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from pds.projects import add_project_entry, read_projects
+from pds.projects import DEFAULT_BRANCH, add_project_entry, branch_of, read_projects
 
 ENTRY = {"repository": "/repos/a", "baseline": "A", "srcDir": "src", "groups": ["default"]}
 
@@ -25,3 +25,9 @@ def test_add_project_entry_rejects_registered_repository(layout):
 
     with pytest.raises(ValueError, match="already"):
         add_project_entry(layout, ENTRY)
+
+
+def test_branch_of_defaults_to_develop():
+    assert branch_of({}) == DEFAULT_BRANCH
+    assert branch_of({"branch": ""}) == DEFAULT_BRANCH
+    assert branch_of({"branch": "main"}) == "main"

@@ -22,6 +22,14 @@ def test_project_entry_keeps_requested_groups():
     assert project_entry(SAMPLE_REPOSITORY, ["Core", "Tests"])["groups"] == ["Core", "Tests"]
 
 
+def test_project_entry_omits_default_branch():
+    assert "branch" not in project_entry(SAMPLE_REPOSITORY)
+
+
+def test_project_entry_keeps_requested_branch():
+    assert project_entry(SAMPLE_REPOSITORY, branch="main")["branch"] == "main"
+
+
 def test_src_dir_defaults_to_src_without_project_file(tmp_path):
     (tmp_path / "src" / "BaselineOfX").mkdir(parents=True)
 

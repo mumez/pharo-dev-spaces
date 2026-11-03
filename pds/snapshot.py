@@ -1,4 +1,4 @@
-"""build-snapshot: load origin/develop of every project into a copy of the base image,
+"""build-snapshot: load each project's origin branch into a copy of the base image,
 run their tests, and promote the result to snapshots/current only when everything passes."""
 
 import json
@@ -8,7 +8,7 @@ from datetime import datetime
 
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
 from pds.pharo import BUILD_SIS_PORT, run_pharo
-from pds.projects import read_projects
+from pds.projects import branch_of, read_projects
 from pds.sources import fetch_project_sources
 from pds.st_script import render_template_file
 
@@ -71,7 +71,12 @@ def write_manifest(layout, built_at, mode, base, fetched_sources, test_results):
         "mode": mode,
         "base": base,
         "repositories": [
-            {"repository": source.project["repository"], "baseline": source.project["baseline"], "sha": source.sha}
+            {
+                "repository": source.project["repository"],
+                "baseline": source.project["baseline"],
+                "sha": source.sha,
+                "branch": branch_of(source.project),
+            }
             for source in fetched_sources
         ],
         "tests": test_results,

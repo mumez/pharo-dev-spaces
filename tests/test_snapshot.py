@@ -25,7 +25,7 @@ def fake_fetch_project_sources(projects, extract_root):
     for package in ("BaselineOfHistoria", "Historia-Core", "Historia-Tests"):
         (src_path / package).mkdir(parents=True)
     (src_path / ".properties").write_text("{}")
-    return [FetchedSource(PROJECT, "abc123", src_path)]
+    return [FetchedSource(projects[0], "abc123", src_path)]
 
 
 @pytest.fixture
@@ -96,9 +96,21 @@ def test_successful_build_writes_manifest(build_layout, monkeypatch):
         "builtAt": "2026-10-13T09:30:15",
         "mode": "full",
         "base": "dev-base",
-        "repositories": [{"repository": "/repos/Historia", "baseline": "Historia", "sha": "abc123"}],
+        "repositories": [
+            {"repository": "/repos/Historia", "baseline": "Historia", "sha": "abc123", "branch": "develop"}
+        ],
         "tests": PASSED,
     }
+
+
+def test_manifest_records_configured_branch(build_layout, monkeypatch):
+    build_layout.projects_file.write_text(json.dumps([{**PROJECT, "branch": "main"}]))
+    monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
+
+    build_snapshot(build_layout, full=True, built_at=BUILT_AT)
+
+    manifest = json.loads((build_layout.snapshots_dir / "2026-10-13.json").read_text())
+    assert manifest["repositories"][0]["branch"] == "main"
 
 
 def test_successful_build_archives_snapshot_image(build_layout, monkeypatch):
