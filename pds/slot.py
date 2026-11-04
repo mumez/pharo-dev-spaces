@@ -5,20 +5,27 @@ import os
 import shutil
 import signal
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
-from pds.image_dir import copy_image, image_path, staged_replacement
+from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
 from pds.pharo import (
+    BUILD_SIS_PORT,
     STANDALONE_SIS_PORT,
+    PharoRunError,
+    PortInUseError,
     default_ripple_port,
     ensure_pharo_ports_available,
     keep_alive_command,
     pharo_environment,
     pharo_ui_command,
+    run_pharo,
 )
 from pds.projects import read_projects
-from pds.snapshot import latest_manifest_path
+from pds.snapshot import BUILD_TIMEOUT_SECONDS, TEST_RESULTS_FILE_NAME, latest_manifest_path, load_script, test_packages
+from pds.sources import FetchedSource, SourceFetchError, extract_src_dir, fetch_branch_sha
+from pds.st_script import render_template_file
 
 SLOT_NUMBERS = (1, 2, 3, 4, 5)
 SLOT_BASE_PORT = STANDALONE_SIS_PORT  # stays free for a standalone image; slot N listens on 8086 + N
@@ -27,17 +34,31 @@ ORIGIN_FILE_NAME = "origin.json"
 PORTS_FILE_NAME = "ports.json"  # optional per-slot override: {"sis": 8089, "ripple": 9189}
 REFS_FILE_NAME = "refs.json"  # branches the next `reset --load` overlays: [{"repository", "ref"}]
 TESTS_FILE_NAME = "tests.json"  # last overlay test result; not kept across reset
-# Per-slot settings that outlive the image: port overrides and AgenticBrowser settings saved by the image.
-NAMES_KEPT_ACROSS_RESET = (PORTS_FILE_NAME, "agentic-browser")
+OVERLAY_SCRIPT_FILE_NAME = "overlay.st"
+# Per-slot settings that outlive the image: port overrides, AgenticBrowser settings, and saved overlay refs.
+NAMES_KEPT_ACROSS_RESET = (PORTS_FILE_NAME, "agentic-browser", REFS_FILE_NAME)
 PORT_OVERRIDE_KEYS = {"sis", "ripple"}
 
 
 REF_ENTRY_KEYS = {"repository", "ref"}
 
 
+class SlotOverlayError(RuntimeError):
+    """The overlay was not loaded. The previous slot image is unchanged."""
+
+
+class SlotTestFailure(RuntimeError):
+    """The overlay loaded and tests failed. The new image stays so it can be inspected."""
+
+    def __init__(self, result):
+        tests = result["tests"]
+        count = len(tests["failures"]) + len(tests["errors"])
+        super().__init__(f"{count} of {tests['run']} tests failed")
+        self.result = result
+
+
 def strip_origin_prefix(ref):
-    prefix = "origin/"
-    return ref[len(prefix) :] if ref.startswith(prefix) else ref
+    return ref.removeprefix("origin/")
 
 
 def parse_ref_spec(spec):
@@ -80,7 +101,7 @@ def resolve_ref_specs(projects, specs):
 def validate_saved_refs(entries, projects, source):
     """Saved refs are `{repository, ref}` only, and each repository is in st-projects.json."""
     if not isinstance(entries, list):
-        raise ValueError(f"{source}: expected a list of repository refs")
+        raise TypeError(f"{source}: expected a list of repository refs")
     known = {project["repository"] for project in projects}
     seen = set()
     validated = []
@@ -89,7 +110,7 @@ def validate_saved_refs(entries, projects, source):
             raise ValueError(f"{source}: each ref must have only 'repository' and 'ref'")
         repository, ref = entry["repository"], entry["ref"]
         if not isinstance(repository, str) or not isinstance(ref, str):
-            raise ValueError(f"{source}: repository and ref must be strings")
+            raise TypeError(f"{source}: repository and ref must be strings")
         ref = strip_origin_prefix(ref)
         if not ref:
             raise ValueError(f"{source}: ref must be a branch name")
@@ -238,21 +259,198 @@ def reset_slot(layout, slot_number, *, ref_specs=(), load_saved=False, run_tests
     elif load_saved:
         load_saved_ref_request(layout, slot_number)
     if overlaying:
-        raise NotImplementedError("slot overlay")
+        return overlay_slot(
+            layout,
+            slot_number,
+            ref_specs=ref_specs,
+            load_saved=load_saved,
+            run_tests=run_tests is not False,
+        )
     with staged_replacement(slot_dir(layout, slot_number), force=True) as staging_dir:
         origin_dir = slot_origin_dir(layout)
         copy_image(layout, origin_dir, staging_dir)
-        (staging_dir / ORIGIN_FILE_NAME).write_text(json.dumps(slot_origin(layout, origin_dir), indent=2) + "\n")
-        keep_slot_settings(slot_dir(layout, slot_number), staging_dir)
+        write_slot_json(staging_dir / ORIGIN_FILE_NAME, slot_origin(layout, origin_dir))
+        keep_slot_settings(slot_dir(layout, slot_number), staging_dir, names_kept_across_reset(clear_refs))
 
 
-def keep_slot_settings(old_slot_dir, staging_dir):
-    for name in NAMES_KEPT_ACROSS_RESET:
+def names_kept_across_reset(clear_refs):
+    if clear_refs:
+        return tuple(name for name in NAMES_KEPT_ACROSS_RESET if name != REFS_FILE_NAME)
+    return NAMES_KEPT_ACROSS_RESET
+
+
+def keep_slot_settings(old_slot_dir, staging_dir, names=NAMES_KEPT_ACROSS_RESET):
+    for name in names:
         kept = old_slot_dir / name
         if kept.is_dir():
             shutil.copytree(kept, staging_dir / name, symlinks=True)
         elif kept.exists():
             shutil.copy2(kept, staging_dir / name)
+
+
+def write_slot_json(path, value):
+    path.write_text(json.dumps(value, indent=2) + "\n")
+
+
+def overlay_slot(layout, slot_number, *, ref_specs, load_saved, run_tests):
+    """Copy snapshots/current and Metacello-load the requested origin branches."""
+    if not image_path(layout.current_snapshot_dir).exists():
+        raise SlotOverlayError("snapshots/current does not exist; run `pds build-snapshot --full` first")
+    projects = read_projects(layout)
+    if ref_specs:
+        saved_refs = resolve_ref_specs(projects, ref_specs)
+        replace_saved_refs = True
+    else:
+        saved_refs = load_saved_ref_request(layout, slot_number)
+        replace_saved_refs = False
+    try:
+        ensure_pharo_ports_available(pharo_environment(BUILD_SIS_PORT))
+    except PortInUseError as error:
+        raise SlotOverlayError(str(error)) from error
+    old_slot_dir = slot_dir(layout, slot_number)
+    with tempfile.TemporaryDirectory(prefix="pds-overlay-") as extract_root:
+        fetched = fetch_overlaid_sources(projects, saved_refs, extract_root)
+        test_sources = test_sources_for_overlay(layout, projects, fetched, extract_root) if run_tests else None
+        test_results = None
+        with staged_replacement(old_slot_dir, force=True) as staging_dir:
+            copy_image(layout, layout.current_snapshot_dir, staging_dir)
+            script_path = staging_dir / OVERLAY_SCRIPT_FILE_NAME
+            ordered = sources_in_project_order(projects, fetched)
+            script_path.write_text(overlay_script(ordered, test_sources, staging_dir))
+            try:
+                run_pharo(
+                    layout,
+                    image_path(staging_dir),
+                    script_path,
+                    port=BUILD_SIS_PORT,
+                    timeout=BUILD_TIMEOUT_SECONDS,
+                    save=True,
+                )
+            except PharoRunError as error:
+                raise SlotOverlayError(str(error)) from error
+            script_path.unlink()
+            if run_tests:
+                test_results = read_overlay_test_results(staging_dir)
+            remove_iceberg_cache(staging_dir)
+            write_overlay_records(
+                layout, old_slot_dir, staging_dir, projects, saved_refs, fetched, replace_saved_refs, test_results
+            )
+    result = overlay_result(layout, slot_number)
+    if test_results and (test_results["failures"] or test_results["errors"]):
+        raise SlotTestFailure(result)
+    return result
+
+
+def fetch_overlaid_sources(projects, saved_refs, extract_root):
+    projects_by_repository = {project["repository"]: project for project in projects}
+    fetched = []
+    for index, entry in enumerate(saved_refs):
+        project = projects_by_repository[entry["repository"]]
+        target_dir = Path(extract_root) / f"{index}-{Path(project['repository']).name}"
+        try:
+            sha = fetch_branch_sha(project["repository"], entry["ref"])
+            src_path = extract_src_dir(project["repository"], sha, project["srcDir"], target_dir)
+        except SourceFetchError as error:
+            raise SlotOverlayError(str(error)) from error
+        fetched.append(FetchedSource(project, sha, src_path))
+    return fetched
+
+
+def sources_in_project_order(projects, sources):
+    order = {project["repository"]: index for index, project in enumerate(projects)}
+    return sorted(sources, key=lambda source: order[source.project["repository"]])
+
+
+def overlay_script(overlaid_sources, test_sources, staging_dir):
+    script = load_script(overlaid_sources)
+    if test_sources is None:
+        return script
+    test_script = render_template_file(
+        "run_tests.st",
+        TEST_PACKAGES=test_packages(test_sources),
+        RESULTS_FILE=str(staging_dir / TEST_RESULTS_FILE_NAME),
+    )
+    return script + "\n" + test_script
+
+
+def test_sources_for_overlay(layout, projects, fetched, extract_root):
+    """Overlaid repositories contribute the fetched tree; the others contribute the manifest sha."""
+    overlaid = {source.project["repository"]: source for source in fetched}
+    manifest_path = latest_manifest_path(layout)
+    manifest = json.loads(manifest_path.read_text()) if manifest_path else {}
+    sources = []
+    for project in projects:
+        repository = project["repository"]
+        if repository in overlaid:
+            sources.append(overlaid[repository])
+            continue
+        sha = manifest_sha(manifest, project)
+        target_dir = Path(extract_root) / f"manifest-{Path(repository).name}"
+        try:
+            src_path = extract_src_dir(repository, sha, project["srcDir"], target_dir)
+        except SourceFetchError as error:
+            raise SlotOverlayError(f"{project['baseline']}: {error}") from error
+        sources.append(FetchedSource(project, sha, src_path))
+    return sources
+
+
+def manifest_sha(manifest, project):
+    baseline = project["baseline"]
+    for entry in manifest.get("repositories", []):
+        if entry.get("repository") == project["repository"]:
+            sha = entry.get("sha")
+            if not sha:
+                raise SlotOverlayError(f"{baseline}: snapshot manifest has no sha; run `pds build-snapshot --full`")
+            return sha
+    raise SlotOverlayError(f"{baseline} is not in the latest snapshot manifest; run `pds build-snapshot --full`")
+
+
+def read_overlay_test_results(staging_dir):
+    results_file = staging_dir / TEST_RESULTS_FILE_NAME
+    if not results_file.exists():
+        raise SlotOverlayError("Pharo exited without writing test results")
+    try:
+        test_results = json.loads(results_file.read_text())
+    except json.JSONDecodeError as error:
+        raise SlotOverlayError(f"test results are not valid JSON: {error}") from error
+    results_file.unlink()
+    return test_results
+
+
+def write_overlay_records(
+    layout, old_slot_dir, staging_dir, projects, saved_refs, fetched, replace_saved_refs, test_results
+):
+    sha_of = {source.project["repository"]: source.sha for source in fetched}
+    baseline_of = {project["repository"]: project["baseline"] for project in projects}
+    origin = slot_origin(layout, layout.current_snapshot_dir)
+    origin["refs"] = [
+        {
+            "repository": entry["repository"],
+            "baseline": baseline_of[entry["repository"]],
+            "ref": entry["ref"],
+            "sha": sha_of[entry["repository"]],
+        }
+        for entry in saved_refs
+    ]
+    write_slot_json(staging_dir / ORIGIN_FILE_NAME, origin)
+    kept_names = NAMES_KEPT_ACROSS_RESET
+    if replace_saved_refs:
+        kept_names = tuple(name for name in NAMES_KEPT_ACROSS_RESET if name != REFS_FILE_NAME)
+    keep_slot_settings(old_slot_dir, staging_dir, kept_names)
+    if replace_saved_refs:
+        write_slot_json(staging_dir / REFS_FILE_NAME, saved_refs)
+    if test_results is not None:
+        write_slot_json(staging_dir / TESTS_FILE_NAME, test_results)
+
+
+def overlay_result(layout, slot_number):
+    return {
+        "slot": slot_number,
+        "loaded": True,
+        "origin": read_slot_origin(layout, slot_number),
+        "savedRefs": read_saved_refs(layout, slot_number),
+        "tests": read_slot_tests(layout, slot_number),
+    }
 
 
 def start_slot(layout, slot_number, gui=False):

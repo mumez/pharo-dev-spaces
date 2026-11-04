@@ -8,7 +8,15 @@ from pds.layout import Layout
 from pds.mcp_config import launch_claude, launch_cursor_agent, launch_opencode
 from pds.projects import DEFAULT_BRANCH, add_project_entry
 from pds.setup_plain import setup_plain
-from pds.slot import SLOT_NUMBERS, reset_slot, slot_status, start_slot, stop_slot
+from pds.slot import (
+    SLOT_NUMBERS,
+    SlotOverlayError,
+    SlotTestFailure,
+    reset_slot,
+    slot_status,
+    start_slot,
+    stop_slot,
+)
 from pds.snapshot import build_snapshot
 
 
@@ -158,14 +166,23 @@ def without_leading_double_dash(arguments):
 
 
 def reset_from_cli(layout, args):
-    reset_slot(
-        layout,
-        args.slot_number,
-        ref_specs=args.ref or (),
-        load_saved=args.load,
-        run_tests=args.test,
-        clear_refs=args.clear_refs,
-    )
+    try:
+        result = reset_slot(
+            layout,
+            args.slot_number,
+            ref_specs=args.ref or (),
+            load_saved=args.load,
+            run_tests=args.test,
+            clear_refs=args.clear_refs,
+        )
+    except SlotTestFailure as failure:
+        print_json(failure.result)
+        raise
+    except SlotOverlayError as error:
+        print_json({"slot": args.slot_number, "loaded": False, "error": str(error)})
+        raise
+    if result is not None:
+        print_json(result)
 
 
 def add_project(layout, args):
