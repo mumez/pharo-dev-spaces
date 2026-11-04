@@ -32,7 +32,7 @@ Only the keys you write override the defaults (`ripple` still follows `sis` + 10
 
 `pds slot N up` refuses to start when the slot's SIS or Ripple port is already in use.
 
-`pds slot N reset` replaces the image but keeps the slot's `ports.json` and `agentic-browser/` (AgenticBrowser settings saved by that slot).
+`pds slot N reset` replaces the image but keeps the slot's `ports.json`, `refs.json`, and `agentic-browser/` (AgenticBrowser settings saved by that slot). `--clear-refs` drops `refs.json`.
 
 ## Setup
 
@@ -89,6 +89,11 @@ Incremental builds pick up changed methods and baseline changes (new packages or
 uv run pds list-slots                 # status of all slots as JSON; a slot with "running": false is free
 uv run pds slot 2 status              # status of one slot
 uv run pds slot 2 reset               # recreate slots/slot2 from snapshots/current (or dev-base)
+uv run pds slot 1 reset --ref RepoA:feature/xxx          # overlay that origin branch and run tests
+uv run pds slot 1 reset --ref RepoA:feature/xxx --ref RepoB:feature/yyy
+uv run pds slot 1 reset --load        # repeat the branches saved in slots/slot1/refs.json
+uv run pds slot 1 reset --ref RepoA:feature/xxx --no-test
+uv run pds slot 1 reset --clear-refs  # drop refs.json and recreate a clean copy
 uv run pds slot 2 up                  # start headless (SIS on 8088)
 uv run pds slot 2 gui                 # or start with the GUI (pharo-ui) on the same ports
 uv run pds slot 2 claude              # run Claude Code with MCP pointed at slot2
@@ -110,7 +115,13 @@ uv run pds slot 2 down                # stop
 
 `slot N opencode [--workdir DIR]` merges `smalltalk-interop` / `smalltalk-validator` into `DIR/opencode.json` (`DIR` defaults to cwd) without dropping other existing servers; on name clashes, smalltalk-dev wins. `smalltalk-interop` uses `"SIS_PORT": "{env:SIS_PORT}"` (opencode expands `{env:NAME}`); `pds` exports `SIS_PORT=8086+N` on launch and warns when it changes the file. Outside pds, set `SIS_PORT` yourself or expect the server default 8086. opencode has no directory flag, so pds changes into `DIR` before launching it. Arguments after `--` go to `opencode` (e.g. `run "..."` for non-interactive mode). Other MCP servers come from your `~/.config/opencode/opencode.json` as usual.
 
-`status` / `list-slots` include `origin`, recorded by `reset`: `{"source": "snapshots/current", "snapshot": "<date>", "builtAt": "<date>T<time>"}` (the latest `snapshots/<date>.json` manifest at reset time and its `builtAt`; `null` for manifests written before `builtAt` was recorded) or `{"source": "dev-base", "snapshot": null, "builtAt": null}`. It is `null` for a slot that was never reset (or was reset by an older pds).
+`--ref NAME:BRANCH` resolves `NAME` to one `st-projects.json` entry: a unique baseline, otherwise a unique repository directory name, otherwise the absolute repository path. Repeat it to overlay several repositories. The set passed on that command replaces `slots/slotN/refs.json` (`[{"repository", "ref"}]`, branch names without an `origin/` prefix). `--load` reads that file and fetches the branches again, so a branch that has moved is loaded at its new commit; the file bytes stay as they were. `--ref` together with `--load` uses the `--ref` set. A plain reset still falls back to dev-base when no snapshot exists. An overlay requires `snapshots/current`.
+
+The overlay copies that snapshot, `git fetch`es only the named branches, and Metacello-loads only those repositories. The others stay as they were built into the snapshot. Tests run unless `--no-test`, on the build port 8096: the fetched `srcDir` for named repositories, and `git archive` of the manifest sha for the others. `BaselineOf*` packages and dot-directories are skipped. The command prints one JSON document with `loaded`, `origin.refs` (repository, baseline, ref, and the fetched sha), `savedRefs`, and `tests` (`null` when tests were skipped). Exit code 0 means the load succeeded and every test passed or tests were skipped. A failed suite exits 1, keeps the loaded image, and writes `tests.json`. A fetch, archive, missing snapshot, busy build port, or Pharo run that does not write test results leaves the previous image and `refs.json` in place and prints `{"loaded": false, "error": "..."}`.
+
+Changed methods, and packages or dependencies added by the baseline, are loaded. Removed or renamed packages and classes stay in the image, and a package removed on the branch is not tested. Rebuild the snapshot with `pds build-snapshot --full` for those changes.
+
+`status` / `list-slots` include `origin`, recorded by `reset`: `{"source": "snapshots/current", "snapshot": "<date>", "builtAt": "<date>T<time>"}` (the latest `snapshots/<date>.json` manifest at reset time and its `builtAt`; `null` for manifests written before `builtAt` was recorded) or `{"source": "dev-base", "snapshot": null, "builtAt": null}`. An overlay adds `origin.refs`. It is `null` for a slot that was never reset (or was reset by an older pds). They also include `savedRefs` (the `refs.json` array, or `[]`) and `tests` (the last `tests.json`, or `null`). `origin.refs` is what this image contains. `savedRefs` is what the next `--load` uses. After a plain reset, `origin` has no `refs` key and `savedRefs` still holds the previous request.
 
 A slot counts as running only if it was started with `pds slot N up` or `pds slot N gui`, which write a pid file.
 
@@ -150,7 +161,7 @@ pharo-dev-spaces/
     current/            # image that slots start from
     <date>.json         # build manifests
   archives/<date>.tar.gz
-  slots/slot{1..5}/    # Pharo.image/.changes, pharo.pid, pharo.log
+  slots/slot{1..5}/    # Pharo.image/.changes, pharo.pid, pharo.log, refs.json, tests.json
 ```
 
 Everything except `pds/`, `skills/`, `tests/`, and `tasks/` is generated and ignored by git. Set `PDS_ROOT` to use a different root directory.

@@ -206,6 +206,8 @@ def test_status_of_running_slot_reports_pid_and_port(layout):
         "running": True,
         "pid": os.getpid(),
         "origin": None,
+        "savedRefs": [],
+        "tests": None,
     }
 
 
@@ -218,7 +220,23 @@ def test_status_of_slot_never_reset_is_free_without_image(layout):
         "running": False,
         "pid": None,
         "origin": None,
+        "savedRefs": [],
+        "tests": None,
     }
+
+
+def test_status_reports_saved_refs_and_slot_tests(layout):
+    slot_directory = slot_dir(layout, 1)
+    slot_directory.mkdir(parents=True)
+    saved_refs = [{"repository": "/repos/RepoA", "ref": "feature/xxx"}]
+    slot_tests = {"run": 1, "passed": 1, "failures": [], "errors": []}
+    (slot_directory / "refs.json").write_text(json.dumps(saved_refs))
+    (slot_directory / "tests.json").write_text(json.dumps(slot_tests))
+
+    status = slot_status(layout, 1)
+
+    assert status["savedRefs"] == saved_refs
+    assert status["tests"] == slot_tests
 
 
 def test_slot_with_stale_pid_is_not_running(layout):
