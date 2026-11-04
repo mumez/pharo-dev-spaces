@@ -12,12 +12,12 @@ Design: `tasks/2026-11-04/plan.md`.
 **Description:** `pds slot N status` and `pds list-slots` always include `savedRefs` (`refs.json`, or `[]`) and `tests` (`tests.json`, or `null`). A plain reset still writes `origin.json` with no `refs` key.
 
 **Acceptance criteria:**
-- [ ] A slot with both files reports them
-- [ ] A slot without them reports `savedRefs: []` and `tests: null`
-- [ ] Existing full-dict status assertions include the new keys
+- [x] A slot with both files reports them
+- [x] A slot without them reports `savedRefs: []` and `tests: null`
+- [x] Existing full-dict status assertions include the new keys
 
 **Verification:**
-- [ ] `uv run pytest tests/test_slot.py`
+- [x] `uv run pytest tests/test_slot.py`
 
 **Dependencies:** none
 

@@ -6,6 +6,7 @@ import shutil
 import signal
 import subprocess
 import time
+from pathlib import Path
 
 from pds.image_dir import copy_image, image_path, staged_replacement
 from pds.pharo import (
@@ -16,6 +17,7 @@ from pds.pharo import (
     pharo_environment,
     pharo_ui_command,
 )
+from pds.projects import read_projects
 from pds.snapshot import latest_manifest_path
 
 SLOT_NUMBERS = (1, 2, 3, 4, 5)
@@ -28,6 +30,76 @@ TESTS_FILE_NAME = "tests.json"  # last overlay test result; not kept across rese
 # Per-slot settings that outlive the image: port overrides and AgenticBrowser settings saved by the image.
 NAMES_KEPT_ACROSS_RESET = (PORTS_FILE_NAME, "agentic-browser")
 PORT_OVERRIDE_KEYS = {"sis", "ripple"}
+
+
+REF_ENTRY_KEYS = {"repository", "ref"}
+
+
+def strip_origin_prefix(ref):
+    prefix = "origin/"
+    return ref[len(prefix) :] if ref.startswith(prefix) else ref
+
+
+def parse_ref_spec(spec):
+    """`NAME:BRANCH`. A leading `origin/` on the branch is the same branch without it."""
+    name, separator, branch = spec.partition(":")
+    branch = strip_origin_prefix(branch)
+    if separator != ":" or not name or not branch:
+        raise ValueError(f"--ref must be NAME:BRANCH, got {spec!r}")
+    return name, branch
+
+
+def resolve_project(projects, name):
+    """First unique match: baseline, then repository directory name, then absolute path."""
+    for label, key in (
+        ("baseline", lambda project: project["baseline"]),
+        ("repository directory", lambda project: Path(project["repository"]).name),
+        ("repository path", lambda project: project["repository"]),
+    ):
+        matches = [project for project in projects if key(project) == name]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise ValueError(f"{name} matches more than one {label} in st-projects.json")
+    raise ValueError(f"{name} matches no project in st-projects.json")
+
+
+def resolve_ref_specs(projects, specs):
+    resolved = []
+    seen = set()
+    for spec in specs:
+        name, branch = parse_ref_spec(spec)
+        repository = resolve_project(projects, name)["repository"]
+        if repository in seen:
+            raise ValueError(f"{repository} is given twice")
+        seen.add(repository)
+        resolved.append({"repository": repository, "ref": branch})
+    return resolved
+
+
+def validate_saved_refs(entries, projects, source):
+    """Saved refs are `{repository, ref}` only, and each repository is in st-projects.json."""
+    if not isinstance(entries, list):
+        raise ValueError(f"{source}: expected a list of repository refs")
+    known = {project["repository"] for project in projects}
+    seen = set()
+    validated = []
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != REF_ENTRY_KEYS:
+            raise ValueError(f"{source}: each ref must have only 'repository' and 'ref'")
+        repository, ref = entry["repository"], entry["ref"]
+        if not isinstance(repository, str) or not isinstance(ref, str):
+            raise ValueError(f"{source}: repository and ref must be strings")
+        ref = strip_origin_prefix(ref)
+        if not ref:
+            raise ValueError(f"{source}: ref must be a branch name")
+        if repository not in known:
+            raise ValueError(f"{source}: {repository} is not in st-projects.json")
+        if repository in seen:
+            raise ValueError(f"{repository} is given twice")
+        seen.add(repository)
+        validated.append({"repository": repository, "ref": ref})
+    return validated
 
 
 def default_slot_port(slot_number):
@@ -139,8 +211,34 @@ def ensure_slot_stopped(layout, slot_number):
         raise RuntimeError(f"slot{slot_number} is running; run `pds slot {slot_number} down` first")
 
 
-def reset_slot(layout, slot_number):
+def saved_refs_path(layout, slot_number):
+    return slot_dir(layout, slot_number) / REFS_FILE_NAME
+
+
+def load_saved_ref_request(layout, slot_number):
+    refs_path = saved_refs_path(layout, slot_number)
+    if not refs_path.exists():
+        raise ValueError(f"{refs_path} does not exist; pass --ref NAME:BRANCH")
+    try:
+        entries = json.loads(refs_path.read_text())
+    except json.JSONDecodeError as syntax_error:
+        raise ValueError(f"{refs_path}: {syntax_error}") from syntax_error
+    return validate_saved_refs(entries, read_projects(layout), refs_path)
+
+
+def reset_slot(layout, slot_number, *, ref_specs=(), load_saved=False, run_tests=None, clear_refs=False):
     ensure_slot_stopped(layout, slot_number)
+    overlaying = bool(ref_specs) or load_saved
+    if clear_refs and overlaying:
+        raise ValueError("--clear-refs cannot be combined with --ref or --load")
+    if run_tests is True and not overlaying:
+        raise ValueError("--test requires --ref or --load")
+    if ref_specs:
+        resolve_ref_specs(read_projects(layout), ref_specs)
+    elif load_saved:
+        load_saved_ref_request(layout, slot_number)
+    if overlaying:
+        raise NotImplementedError("slot overlay")
     with staged_replacement(slot_dir(layout, slot_number), force=True) as staging_dir:
         origin_dir = slot_origin_dir(layout)
         copy_image(layout, origin_dir, staging_dir)

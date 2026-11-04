@@ -33,8 +33,28 @@ def build_parser():
     slot_parser = commands.add_parser("slot", help="manage the fixed slots slot1..5: pds slot N <action>")
     slot_parser.add_argument("slot_number", type=int, choices=SLOT_NUMBERS)
     slot_actions = slot_parser.add_subparsers(dest="slot_action", required=True)
+    reset_parser = slot_actions.add_parser("reset", help="recreate the slot from snapshots/current (or dev-base)")
+    reset_parser.add_argument(
+        "--ref",
+        action="append",
+        default=None,
+        metavar="NAME:BRANCH",
+        help="overlay this repository at origin/BRANCH (repeatable; replaces the saved refs)",
+    )
+    reset_parser.add_argument("--load", action="store_true", help="overlay the refs saved in the slot's refs.json")
+    reset_parser.add_argument(
+        "--test",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="run project tests after an overlay (default: run them; --no-test skips)",
+    )
+    reset_parser.add_argument(
+        "--clear-refs",
+        action="store_true",
+        help="drop saved refs and recreate a clean snapshot copy",
+    )
+    reset_parser.set_defaults(handler=reset_from_cli)
     for action, handler, help_text in (
-        ("reset", reset_slot, "recreate the slot from snapshots/current (or dev-base)"),
         ("up", start_slot, "start the slot headless with PHARO_SIS_PORT=8086+N"),
         ("down", stop_slot, "stop the slot"),
     ):
@@ -135,6 +155,17 @@ def print_json(value):
 def without_leading_double_dash(arguments):
     """argparse.REMAINDER keeps the `--` separating pds options from agent options."""
     return arguments[1:] if arguments[:1] == ["--"] else arguments
+
+
+def reset_from_cli(layout, args):
+    reset_slot(
+        layout,
+        args.slot_number,
+        ref_specs=args.ref or (),
+        load_saved=args.load,
+        run_tests=args.test,
+        clear_refs=args.clear_refs,
+    )
 
 
 def add_project(layout, args):
