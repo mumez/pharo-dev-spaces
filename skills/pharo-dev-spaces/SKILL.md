@@ -1,6 +1,6 @@
 ---
 name: pharo-dev-spaces
-description: Operate pharo-dev-spaces (`pds`) at $PDS_HOME, which gives each coding-agent session its own Pharo image ("slot") — build/rebuild the base image (plain + dev-base), register projects in st-projects.json (local repos or cloned GitHub URLs), build/rebuild snapshots, reset/start (headless or GUI)/stop slots, launch claude / cursor-agent / opencode in a slot to do work there (fix a bug, run all tests, ...), and answer or troubleshoot anything about these (running slots, port conflicts, base Pharo version, snapshot contents). Use whenever the user mentions pds, slots, snapshots, the base image / dev-base, or st-projects.json, e.g. "clone <URL> and add it to the projects", "create a snapshot", "build the base image with Pharo 14", "reset slot 2 and start working", "run the tests in a free slot", "which slots are running?". Not for work inside an image you are already connected to (eval, import, test) or for BaselineOf dependencies.
+description: Operate pharo-dev-spaces (`pds`) at $PDS_HOME, which gives each coding-agent session its own Pharo image ("slot") — build/rebuild the base image (plain + dev-base), register projects in st-projects.json (local repos or cloned GitHub URLs), build/rebuild snapshots, reset/start (headless or GUI)/stop slots, launch claude / cursor-agent / opencode in a slot to do work there (fix a bug, run all tests, ...), and answer or troubleshoot anything about these (running slots, port conflicts, base Pharo version, snapshot contents). Use whenever the user mentions pds, slots, snapshots, the base image / dev-base, or st-projects.json, e.g. "clone <URL> and add it to the projects", "create a snapshot", "build the base image with Pharo 14", "reset slot 2 and start working", "review RepoA feature/xxx in a free slot", "run the tests in a free slot", "which slots are running?". Not for work inside an image you are already connected to (eval, import, test) or for BaselineOf dependencies.
 ---
 
 # pharo-dev-spaces (pds)
@@ -26,7 +26,7 @@ Slot N listens on SIS port `8086+N` (Ripple `9086+N`) unless `slots/slotN/ports.
   This works from any cwd. If `PDS_ROOT` is set, pds uses that as the root instead of `$PDS_HOME`;
   mention it to the user if the two differ.
 - Start with the state, not assumptions: `pds list-slots` (JSON per slot: `running`, `hasImage`,
-  `port`, `origin`), and `ls "$PDS_HOME"` / `cat "$PDS_HOME/st-projects.json"` for the rest.
+  `port`, `origin`, `savedRefs`, `tests`), and `ls "$PDS_HOME"` / `cat "$PDS_HOME/st-projects.json"` for the rest.
   The Pharo version shows in the `Pharo<ver>-*.sources` file name in `plain-pharo/` and
   `dev-base/`; what a snapshot contains is in `snapshots/<date>.json`.
 - `prepare-dev-base` (≤30 min) and `build-snapshot` (≤60 min) are long. Run them in the background
@@ -115,9 +115,38 @@ Running slots keep their old image; a slot only picks up the new snapshot on `re
 - A free slot is stale when its `origin.builtAt` is older than the `builtAt` in the newest
   `snapshots/<date>.json` (compare times, not dates — a snapshot can be rebuilt on the same day),
   or when `origin` is `null` / from dev-base while a snapshot exists. Reset it too, and say so.
+  If `origin.refs` is present, the slot is reviewing those branches: do not reset it unless the
+  user asked. Tell them the base snapshot is newer and that `pds slot N reset --load` rebuilds
+  the overlay on it.
 - Start it: `pds slot N up` (headless) or `pds slot N gui` if the user wants the Pharo GUI.
   Then wait until the SIS port listens (`ss -ltn | grep ":<port> "`, a few seconds);
   `slots/slotN/pharo.log` shows startup errors.
+
+### Reviewing a remote branch
+
+When the user wants a slot to run a remote branch (for example RepoA `feature/xxx`):
+
+```bash
+pds slot N reset --ref RepoA:feature/xxx
+pds slot N up
+```
+
+`NAME` in `--ref NAME:BRANCH` is a baseline, a repository directory name, or the absolute path in
+`st-projects.json`. Repeat `--ref` for several repositories. This copies `snapshots/current`,
+fetches and Metacello-loads only those repositories at `origin/<branch>`, and runs the same project
+tests as `build-snapshot`. `--no-test` skips the tests. `pds slot N reset --load` repeats the
+branches saved in `slots/slotN/refs.json` (that file survives reset; `--clear-refs` drops it).
+Unnamed repositories stay as they were in the snapshot.
+
+The command prints one JSON document. Exit code 0 means the load succeeded and tests passed or were
+skipped. Exit code 1 with `loaded: true` means tests failed and the image was kept: start it with
+`up` or `gui` and inspect it. `loaded: false` means the previous image and `refs.json` were left
+in place. `origin.refs` is what this image contains (baseline, ref, sha). `savedRefs` is what the
+next `--load` uses.
+
+Changed methods, and packages or dependencies added by the baseline, are loaded. Removed or renamed
+packages and classes stay in the image, and a package removed on the branch is not tested. Say so
+when the user expected them to disappear, and point at `pds build-snapshot --full`.
 
 ### Which agent
 
