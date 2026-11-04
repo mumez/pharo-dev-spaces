@@ -270,11 +270,12 @@ def reset_slot(layout, slot_number, *, ref_specs=(), load_saved=False, run_tests
         origin_dir = slot_origin_dir(layout)
         copy_image(layout, origin_dir, staging_dir)
         write_slot_json(staging_dir / ORIGIN_FILE_NAME, slot_origin(layout, origin_dir))
-        keep_slot_settings(slot_dir(layout, slot_number), staging_dir, names_kept_across_reset(clear_refs))
+        keep_slot_settings(slot_dir(layout, slot_number), staging_dir, kept_names_across_reset(drop_refs=clear_refs))
 
 
-def names_kept_across_reset(clear_refs):
-    if clear_refs:
+def kept_names_across_reset(drop_refs):
+    """Slot files copied into the replacement. Drop refs.json when this reset replaces or clears it."""
+    if drop_refs:
         return tuple(name for name in NAMES_KEPT_ACROSS_RESET if name != REFS_FILE_NAME)
     return NAMES_KEPT_ACROSS_RESET
 
@@ -335,10 +336,7 @@ def overlay_slot(layout, slot_number, *, ref_specs, load_saved, run_tests):
             write_overlay_records(
                 layout, old_slot_dir, staging_dir, projects, saved_refs, fetched, replace_saved_refs, test_results
             )
-    result = overlay_result(layout, slot_number)
-    if test_results and (test_results["failures"] or test_results["errors"]):
-        raise SlotTestFailure(result)
-    return result
+    return raise_if_tests_failed(overlay_result(layout, slot_number))
 
 
 def fetch_overlaid_sources(projects, saved_refs, extract_root):
@@ -433,14 +431,18 @@ def write_overlay_records(
         for entry in saved_refs
     ]
     write_slot_json(staging_dir / ORIGIN_FILE_NAME, origin)
-    kept_names = NAMES_KEPT_ACROSS_RESET
-    if replace_saved_refs:
-        kept_names = tuple(name for name in NAMES_KEPT_ACROSS_RESET if name != REFS_FILE_NAME)
-    keep_slot_settings(old_slot_dir, staging_dir, kept_names)
+    keep_slot_settings(old_slot_dir, staging_dir, kept_names_across_reset(drop_refs=replace_saved_refs))
     if replace_saved_refs:
         write_slot_json(staging_dir / REFS_FILE_NAME, saved_refs)
     if test_results is not None:
         write_slot_json(staging_dir / TESTS_FILE_NAME, test_results)
+
+
+def raise_if_tests_failed(result):
+    tests = result["tests"]
+    if tests and (tests["failures"] or tests["errors"]):
+        raise SlotTestFailure(result)
+    return result
 
 
 def overlay_result(layout, slot_number):

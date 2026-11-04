@@ -73,7 +73,7 @@ Resolve `NAME` in this order and stop at the first unique match:
 
 ### Test scope
 
-Match `build-snapshot`. Run the tests in the package directories directly under each `srcDir` from `st-projects.json` that are loaded in the image. Skip `BaselineOf*` and names starting with `.`. Do not include SIS or AgenticBrowser tests.
+Match `build-snapshot`. Run the tests in the package directories directly under each `srcDir` from `st-projects.json` that are loaded in the image. Skip `BaselineOf*` and names starting with `.`. SIS and AgenticBrowser are loaded into dev-base by `load_agentic_browser.st`, not from a project `srcDir`, so their packages are outside this list. Registering one of those repositories in `st-projects.json` tests it like any other project.
 
 Collect package names as follows:
 
