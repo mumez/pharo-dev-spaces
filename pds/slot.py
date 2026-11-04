@@ -23,6 +23,8 @@ SLOT_BASE_PORT = STANDALONE_SIS_PORT  # stays free for a standalone image; slot 
 STOP_TIMEOUT_SECONDS = 10
 ORIGIN_FILE_NAME = "origin.json"
 PORTS_FILE_NAME = "ports.json"  # optional per-slot override: {"sis": 8089, "ripple": 9189}
+REFS_FILE_NAME = "refs.json"  # branches the next `reset --load` overlays: [{"repository", "ref"}]
+TESTS_FILE_NAME = "tests.json"  # last overlay test result; not kept across reset
 # Per-slot settings that outlive the image: port overrides and AgenticBrowser settings saved by the image.
 NAMES_KEPT_ACROSS_RESET = (PORTS_FILE_NAME, "agentic-browser")
 PORT_OVERRIDE_KEYS = {"sis", "ripple"}
@@ -77,8 +79,21 @@ def slot_origin(layout, origin_dir):
 
 def read_slot_origin(layout, slot_number):
     """The origin recorded at the last reset, or None for a slot reset before origins were recorded."""
-    origin_file = slot_dir(layout, slot_number) / ORIGIN_FILE_NAME
-    return json.loads(origin_file.read_text()) if origin_file.exists() else None
+    return read_slot_json(slot_dir(layout, slot_number) / ORIGIN_FILE_NAME)
+
+
+def read_saved_refs(layout, slot_number):
+    """Branches saved for `reset --load`, or [] when the slot has no refs.json."""
+    return read_slot_json(slot_dir(layout, slot_number) / REFS_FILE_NAME) or []
+
+
+def read_slot_tests(layout, slot_number):
+    """The last overlay test result, or None when this image was not tested."""
+    return read_slot_json(slot_dir(layout, slot_number) / TESTS_FILE_NAME)
+
+
+def read_slot_json(path):
+    return json.loads(path.read_text()) if path.exists() else None
 
 
 def slot_pid(layout, slot_number):
@@ -114,6 +129,8 @@ def slot_status(layout, slot_number):
         "running": pid is not None,
         "pid": pid,
         "origin": read_slot_origin(layout, slot_number),
+        "savedRefs": read_saved_refs(layout, slot_number),
+        "tests": read_slot_tests(layout, slot_number),
     }
 
 
