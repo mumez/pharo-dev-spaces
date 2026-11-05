@@ -25,13 +25,18 @@ Slot N listens on SIS port `8086+N` (Ripple `9086+N`) unless `slots/slotN/ports.
 - Run every command as `uv run --project "$PDS_HOME" pds <command>` (below abbreviated `pds`).
   This works from any cwd. If `PDS_ROOT` is set, pds uses that as the root instead of `$PDS_HOME`;
   mention it to the user if the two differ.
-- Start with the state, not assumptions: `pds list-slots` (JSON per slot: `running`, `hasImage`,
-  `port`, `origin`, `savedRefs`, `tests`), and `ls "$PDS_HOME"` / `cat "$PDS_HOME/st-projects.json"` for the rest.
+- Start with the state the task depends on, not assumptions: `pds list-slots` for slot work (JSON
+  per slot: `running`, `hasImage`, `port`, `origin`, `savedRefs`, `tests`), and `ls "$PDS_HOME"` /
+  `cat "$PDS_HOME/st-projects.json"` for the rest.
   The Pharo version shows in the `Pharo<ver>-*.sources` file name in `plain-pharo/` and
   `dev-base/`; what a snapshot contains is in `snapshots/<date>.json`.
-- `prepare-dev-base` (≤30 min) and `build-snapshot` (≤60 min) are long. Run them in the background
-  with output going to `$PDS_HOME/logs/<command>-<YYYYMMDD-HHMM>.log` (`mkdir -p` it first), then
-  read the log when the command finishes, instead of letting a foreground call time out.
+- `prepare-dev-base`, `build-snapshot`, and `slot N reset` with `--ref` or `--load` usually finish
+  within a few minutes, but pds allows them up to 30, 60, and 60 minutes. Prefer running them in the
+  background with output going to `$PDS_HOME/logs/<command>-<YYYYMMDD-HHMM>.log` (`mkdir -p` it
+  first; e.g. `slot2-reset-20261105-0930.log`), and record the exit code in the log:
+  `pds <command> > "$LOG" 2>&1; echo "exit=$?" >> "$LOG"`. Read the log when the command finishes.
+  The foreground is also fine for a small overlay, such as one `--ref`, if the call's timeout leaves
+  enough room.
 
 ## Base image — "build the base image with Pharo 14"
 
@@ -56,28 +61,38 @@ pds prepare-dev-base               # dev-base/ (loads SIS + AgenticBrowser)
 
 1. Get a local repository path:
    - Local path (e.g. `~/git/MyApp`): use it as is (absolute path).
-   - Git URL: clone into `$PDS_HOME/repos/<repo-name>` (`git clone <url> "$PDS_HOME/repos/<name>"`).
+   - Git URL: clone into `$PDS_HOME/repos/<name>`, where `<name>` is the last URL segment without
+     `.git` (`git clone <url> "$PDS_HOME/repos/<name>"`).
      If that directory already exists, don't overwrite it — check whether it is the same remote and
      reuse it, otherwise ask.
-2. Check the snapshot prerequisite: `build-snapshot` loads **`origin/<branch>`** (`develop`
-   unless the user named another branch or the entry has `"branch"`). If the user named a
-   branch, pass `--branch`. Otherwise run `git -C <repo> ls-remote --heads origin develop`.
-   If there's no `origin` or no `develop` branch, look at the repo's default remote branch
-   (`git -C <repo> symbolic-ref refs/remotes/origin/HEAD`, or `main`/`master`) and register
-   with `--branch` that name, telling the user. If no remote branch is obvious, still register
-   the project but tell the user that snapshot builds will fail until that branch exists. Do
-   not create or push branches on the remote yourself.
+2. Choose the branch. `build-snapshot` loads **`origin/<branch>`**, and `<branch>` is `develop`
+   unless the entry has `"branch"`. Pick the first case that applies:
+   - The user named a branch: pass it as `--branch`, without a leading `origin/` (`add-project`
+     stores the value as written). Check it with `git -C <repo> ls-remote --heads origin <branch>`.
+     If it is missing, still register it and warn that snapshot builds will fail until it exists.
+   - `git -C <repo> ls-remote --heads origin develop` finds `develop`: pass no `--branch`.
+   - `origin` exists without `develop`: use its default branch from
+     `git -C <repo> ls-remote --symref origin HEAD` (otherwise `main` or `master` if present) as
+     `--branch`, and tell the user.
+   - No `origin`, or no branch to choose: register without `--branch` and tell the user that
+     snapshot builds will fail until `origin/develop` exists, or until they push another branch
+     and set `"branch"`. A branch that exists only locally does not count.
+
+   Do not create or push branches on the remote yourself.
 3. Register:
    ```bash
    pds add-project <repo-path> --write                      # groups default to "default"
    pds add-project <repo-path> --groups Core,Tests --write  # when the user names groups
    pds add-project <repo-path> --branch main --write        # repos without origin/develop
    ```
-   It reads the `BaselineOf*` name and `srcDirectory` (from `.project`). "no BaselineOf* package"
-   means it is not a Tonel/Metacello project — report that. "already in st-projects.json" means
-   nothing to do.
-4. Show the resulting entry, and mention that the project enters slots only after the next
-   `pds build-snapshot`.
+   It reads the `BaselineOf*` name and `srcDirectory` (from `.project`; `src` if absent). "no
+   BaselineOf* package" means it is not a Tonel/Metacello project — report that.
+   "already in st-projects.json" means it changed nothing, even with `--write`. If the entry
+   already matches the request, there is nothing to do. To change the branch or groups of an
+   existing entry, edit only that field in `st-projects.json` (the branch is the `branch` key,
+   and removing it means `develop`), after the same `ls-remote` check as in step 2.
+4. Show the resulting entry as read from `st-projects.json`, and mention that the change reaches
+   slots only after the next `pds build-snapshot` and a slot reset.
 
 ## Snapshots — "create a snapshot"
 
@@ -103,28 +118,37 @@ Running slots keep their old image; a slot only picks up the new snapshot on `re
 ### Choosing the slot
 
 - Named slot ("slot 2"): use it.
-- "A free / available slot": `pds list-slots` and take the lowest-numbered slot with `"running": false`.
-  If all 5 are running, tell the user and stop. If `pds slot N up` later fails because a port is
-  in use by another program, move on to the next free slot.
+- "A free / available slot": `pds list-slots` and take the lowest-numbered slot with
+  `"running": false` and no `origin.refs` (a slot with `origin.refs` holds a branch under review).
+  `savedRefs` alone does not make a slot taken. If all 5 are running, tell the user and stop. If
+  the only stopped slots have `origin.refs`, ask which one to replace. If `pds slot N up` later
+  fails because a port is in use by another program, move on to the next free slot.
 
 ### Preparing it
 
 - The user asked to reset, or the slot has no image (`hasImage: false`): `pds slot N reset`. Reset refuses
-  while running; `pds slot N down` first only if the user asked to reset that specific slot
+  while running, with or without `--ref`; `pds slot N down` first only if the user asked to reset that specific slot
   (a running slot may be another agent's session — never stop one you merely picked as "free").
 - A free slot is stale when its `origin.builtAt` is older than the `builtAt` in the newest
   `snapshots/<date>.json` (compare times, not dates — a snapshot can be rebuilt on the same day),
   or when `origin` is `null` / from dev-base while a snapshot exists. Reset it too, and say so.
   If `origin.refs` is present, the slot is reviewing those branches: do not reset it unless the
   user asked. Tell them the base snapshot is newer and that `pds slot N reset --load` rebuilds
-  the overlay on it.
+  the overlay on it. Skip this check when you are about to run `reset --ref`, which always copies
+  the current snapshot.
 - Start it: `pds slot N up` (headless) or `pds slot N gui` if the user wants the Pharo GUI.
   Then wait until the SIS port listens (`ss -ltn | grep ":<port> "`, a few seconds);
   `slots/slotN/pharo.log` shows startup errors.
 
 ### Reviewing a remote branch
 
-When the user wants a slot to run a remote branch (for example RepoA `feature/xxx`):
+When the user wants a slot to run a remote branch (for example RepoA `feature/xxx`), check these
+before running `down` or `reset`:
+
+- `snapshots/current/` exists. An overlay does not fall back to dev-base. If it is missing, stop
+  and offer `pds build-snapshot --full` followed by this overlay; build only if the user agrees.
+- The repository is in `st-projects.json`. If it is not, stop and offer to register it. A newly
+  registered repository named in `--ref` does not need a snapshot rebuild first.
 
 ```bash
 pds slot N reset --ref RepoA:feature/xxx
@@ -132,17 +156,30 @@ pds slot N up
 ```
 
 `NAME` in `--ref NAME:BRANCH` is a baseline, a repository directory name, or the absolute path in
-`st-projects.json`. Repeat `--ref` for several repositories. This copies `snapshots/current`,
+`st-projects.json`. A leading `origin/` on `BRANCH` is ignored. Repeat `--ref` in one command for
+several repositories, because each command replaces the saved set. This copies `snapshots/current`,
 fetches and Metacello-loads only those repositories at `origin/<branch>`, and runs the same project
 tests as `build-snapshot`. `--no-test` skips the tests. `pds slot N reset --load` repeats the
 branches saved in `slots/slotN/refs.json` (that file survives reset; `--clear-refs` drops it).
 Unnamed repositories stay as they were in the snapshot.
 
-The command prints one JSON document. Exit code 0 means the load succeeded and tests passed or were
-skipped. Exit code 1 with `loaded: true` means tests failed and the image was kept: start it with
-`up` or `gui` and inspect it. `loaded: false` means the previous image and `refs.json` were left
-in place. `origin.refs` is what this image contains (baseline, ref, sha). `savedRefs` is what the
-next `--load` uses.
+The command prints one JSON document:
+
+- Exit code 0: the load succeeded and tests passed or were skipped.
+- Exit code 1 with `loaded: true`: tests failed and the image was kept. Start it if the user asked
+  for that or wants to inspect it, and report the failing tests from `tests`. Do not diagnose them
+  or retry with `--no-test` unless the user asks.
+- Exit code 1 with `loaded: false`: the slot's previous image (if any) and `refs.json` were left in
+  place. Report `error`.
+- Exit code 1 with no JSON (unknown `NAME`, slot running): only a `pds: ...` line on stderr, and
+  nothing changed.
+
+`origin.refs` is what this image contains (baseline, ref, sha). `savedRefs` is what the next
+`--load` uses.
+
+Unless the user asked an agent to do the work ("review it and report", not "so I can review it"),
+stop after the slot is listening and give them the session command from "No task given". The overlay
+does not change the checkout at `--workdir`, so tell them it may be on another branch.
 
 Changed methods, and packages or dependencies added by the baseline, are loaded. Removed or renamed
 packages and classes stay in the image, and a package removed on the branch is not tested. Say so
@@ -157,7 +194,8 @@ unsupported, ask which of the three to use.
 The working directory (`--workdir`) should be a Smalltalk project repository, because that is where
 the child agent edits Tonel files. Pick the first that applies and pass it as an absolute path:
 
-1. The repo the user named (or the matching `repository` in `st-projects.json`).
+1. The repo the user named (or the matching `repository` in `st-projects.json`). If they named
+   several, show the command with the first and list the others.
 2. The cwd pds was invoked from, if it is a project repo (not `$PDS_HOME` itself).
 3. Otherwise a repository from `st-projects.json` (e.g. `$PDS_HOME/repos/<name>`): use it if there
    is only one; if there are several, show the command with one of them and list the others.
