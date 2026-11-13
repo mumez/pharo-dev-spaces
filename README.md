@@ -50,7 +50,9 @@ uv run pds run-dev-base                # optional: open dev-base in the GUI to c
 `prepare-dev-base` runs `pds/st/load_libs.st`, which files in every `pds/st/libs/*.st` in file name order and then saves the image.
 `001_agentic_browser.st` (AgenticBrowser + SIS) is there by default.
 To have more packages in every image, add a load script such as `pds/st/libs/002_neo_json.st` and rebuild with `pds prepare-dev-base --force`.
+Name it with a three-digit prefix greater than `001_` (`002_` to `999_`): the order is a plain name sort, so a name such as `000_foo.st` would run before AgenticBrowser.
 Each script only loads code; `load_libs.st` saves and quits. Scripts you add are ignored by git.
+The build stops at the first script that fails, and the error names that script.
 
 ```smalltalk
 Metacello new

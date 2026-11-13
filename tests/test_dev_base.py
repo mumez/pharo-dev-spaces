@@ -29,16 +29,17 @@ def test_prepare_dev_base_creates_image_without_iceberg_cache(plain_layout, monk
     assert not (plain_layout.dev_base_dir / "pharo-local" / "iceberg").exists()
 
 
-def test_default_libs_start_with_agentic_browser():
-    assert min(path.name for path in DEV_BASE_LIBS_DIR.glob("*.st")) == "001_agentic_browser.st"
+def test_default_libs_are_only_agentic_browser():
+    assert {path.name for path in DEV_BASE_LIBS_DIR.glob("*.st")} == {"001_agentic_browser.st"}
 
 
-def test_load_libs_script_files_in_libs_in_name_order_then_saves(tmp_path):
+def test_load_libs_script_files_in_libs_in_name_order_naming_failures_then_saves(tmp_path):
     script = load_libs_script(tmp_path / "it's libs")
 
     assert "'" + str(tmp_path / "it''s libs") + "' asFileReference filesMatching: '*.st'" in script
-    assert "sorted: [ :a :b | a basename <= b basename ]" in script
-    assert "fileIn" in script
+    assert "sorted: [ :a :b | a basename < b basename ]" in script
+    assert "[ each fileIn ] on: Error do:" in script
+    assert "each basename , ' failed: '" in script
     assert script.rstrip().endswith("Smalltalk snapshot: true andQuit: true.")
 
 
