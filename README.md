@@ -41,8 +41,22 @@ Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
 ```bash
 uv sync
 uv run pds setup-plain --version 140   # plain-pharo/: Pharo 14 image + VM
-uv run pds prepare-dev-base            # dev-base/: plain + pds/st/load_agentic_browser.st
+uv run pds prepare-dev-base            # dev-base/: plain + pds/st/libs/*.st (via pds/st/load_libs.st)
 uv run pds run-dev-base                # optional: open dev-base in the GUI to check it
+```
+
+### Adding libraries to dev-base
+
+`prepare-dev-base` runs `pds/st/load_libs.st`, which files in every `pds/st/libs/*.st` in file name order and then saves the image.
+`001_agentic_browser.st` (AgenticBrowser + SIS) is there by default.
+To have more packages in every image, add a load script such as `pds/st/libs/002_neo_json.st` and rebuild with `pds prepare-dev-base --force`.
+Each script only loads code; `load_libs.st` saves and quits. Scripts you add are ignored by git.
+
+```smalltalk
+Metacello new
+  baseline: 'NeoJSON';
+  repository: 'github://svenvc/NeoJSON/repository';
+  load.
 ```
 
 ## Registering projects

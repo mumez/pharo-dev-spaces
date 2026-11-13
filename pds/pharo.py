@@ -38,7 +38,7 @@ def script_command(layout, image, script, save=False):
 
     save=True  -> st --save --quit
     save=False -> st --quit
-    save=None  -> st <script> only (script handles snapshot/quit, e.g. load_agentic_browser.st)
+    save=None  -> st <script> only (script handles snapshot/quit, e.g. load_libs.st)
     """
     if save is None:
         return pharo_command(layout, image, "st", str(script))
