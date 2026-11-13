@@ -1,7 +1,7 @@
 import pytest
 
 from pds import dev_base
-from pds.dev_base import prepare_dev_base, run_dev_base
+from pds.dev_base import DEV_BASE_LIBS_DIR, load_libs_script, prepare_dev_base, run_dev_base
 from pds.pharo import PharoRunError
 from tests.test_image_dir import make_image_dir
 
@@ -15,7 +15,8 @@ def plain_layout(layout):
 
 def fake_successful_run(layout, image, script, port, timeout, save=False):
     assert save is None
-    assert script.name == "load_agentic_browser.st"
+    assert script.name == "load_libs.st"
+    assert f"'{DEV_BASE_LIBS_DIR}' asFileReference" in script.read_text()
     (image.parent / "pharo-local" / "iceberg" / "Sis").mkdir(parents=True)
 
 
@@ -26,6 +27,20 @@ def test_prepare_dev_base_creates_image_without_iceberg_cache(plain_layout, monk
 
     assert (plain_layout.dev_base_dir / "Pharo.image").exists()
     assert not (plain_layout.dev_base_dir / "pharo-local" / "iceberg").exists()
+
+
+def test_default_libs_are_only_agentic_browser():
+    assert {path.name for path in DEV_BASE_LIBS_DIR.glob("*.st")} == {"001_agentic_browser.st"}
+
+
+def test_load_libs_script_files_in_libs_in_name_order_naming_failures_then_saves(tmp_path):
+    script = load_libs_script(tmp_path / "it's libs")
+
+    assert "'" + str(tmp_path / "it''s libs") + "' asFileReference filesMatching: '*.st'" in script
+    assert "sorted: [ :a :b | a basename < b basename ]" in script
+    assert "[ each fileIn ] on: Error do:" in script
+    assert "each basename , ' failed: '" in script
+    assert script.rstrip().endswith("Smalltalk snapshot: true andQuit: true.")
 
 
 def test_prepare_dev_base_leaves_nothing_behind_on_failure(plain_layout, monkeypatch):

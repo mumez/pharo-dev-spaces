@@ -44,8 +44,13 @@ Pharo version → `--version`: Pharo 14 → `140`, Pharo 13 → `130` (digits on
 
 ```bash
 pds setup-plain --version 140      # plain-pharo/
-pds prepare-dev-base               # dev-base/ (loads SIS + AgenticBrowser)
+pds prepare-dev-base               # dev-base/ (loads pds/st/libs/*.st: SIS + AgenticBrowser, plus user libs)
 ```
+
+- Extra packages for dev-base: add a load script `$PDS_HOME/pds/st/libs/NNN_<name>.st` with `NNN` from `002`
+  to `999` (e.g. `002_neo_json.st`). Scripts run in plain file name order, so this prefix keeps them after
+  `001_agentic_browser.st`. They only load; `load_libs.st` saves the image. The first failing script stops
+  the build, and the error names it.
 
 - If `plain-pharo/` or `dev-base/` already exists, the command refuses. Replacing needs `--force`,
   which deletes the old one — confirm with the user first, and say which Pharo version is there now
