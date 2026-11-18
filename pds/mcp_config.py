@@ -21,6 +21,13 @@ servers into that directory's `opencode.json` with
 expansion), and sets `SIS_PORT` to the slot's SIS port in the process environment. opencode has
 no directory flag, so pds changes directory before exec. pds warns when it
 changes the file.
+
+agy: loads `<workdir>/.agents/mcp_config.json`.
+`pds slot N agy [--workdir DIR]` uses DIR (default: cwd), merges smalltalk
+servers into that directory's `.agents/mcp_config.json` with
+`"SIS_PORT": "<port>"`, and sets `SIS_PORT=8086+N` in the process environment.
+agy has no directory flag, so pds changes directory before exec. pds warns when
+it changes the file.
 """
 
 SMALLTALK_INTEROP = "git+https://github.com/mumez/smalltalk-interop-mcp-server.git"
@@ -64,6 +71,23 @@ def opencode_smalltalk_dev_servers():
     }
 
 
+def agy_smalltalk_dev_servers(sis_port=None):
+    """smalltalk-dev MCP servers for Antigravity CLI."""
+    server = {
+        "command": "uvx",
+        "args": ["--from", SMALLTALK_INTEROP, "smalltalk-interop-mcp-server"],
+    }
+    if sis_port is not None:
+        server["env"] = {"SIS_PORT": str(sis_port)}
+    return {
+        "smalltalk-interop": server,
+        "smalltalk-validator": {
+            "command": "uvx",
+            "args": ["--from", SMALLTALK_VALIDATOR, "smalltalk-validator-mcp-server"],
+        },
+    }
+
+
 def cursor_mcp_config(existing=None):
     """Cursor MCP config: merge pds servers into any existing `.cursor/mcp.json`.
 
@@ -92,6 +116,22 @@ def opencode_mcp_config(existing=None):
         "mcp": {
             **existing.get("mcp", {}),
             **opencode_smalltalk_dev_servers(),
+        },
+    }
+
+
+def agy_mcp_config(existing=None, sis_port=None):
+    """Antigravity CLI MCP config: merge pds servers into any existing `.agents/mcp_config.json`.
+
+    Existing servers are kept; smalltalk-dev overrides same-named project
+    servers. SIS_PORT is set to the slot's SIS port.
+    """
+    existing = existing or {}
+    return {
+        **existing,
+        "mcpServers": {
+            **existing.get("mcpServers", {}),
+            **agy_smalltalk_dev_servers(sis_port=sis_port),
         },
     }
 
@@ -221,6 +261,22 @@ def write_opencode_mcp_config(workdir):
     )
 
 
+def write_agy_mcp_config(workdir, sis_port=None):
+    """Merge pds MCP servers into workdir/.agents/mcp_config.json (create if missing)."""
+    warning = (
+        f"pds: warning: merged smalltalk MCP servers into {{path}} (SIS_PORT={sis_port}); "
+        f"outside pds expect port {sis_port}."
+        if sis_port is not None
+        else "pds: warning: merged smalltalk MCP servers into {path}."
+    )
+    return _merge_smalltalk_dev_servers(
+        workdir,
+        Path(".agents") / "mcp_config.json",
+        lambda existing: agy_mcp_config(existing, sis_port=sis_port),
+        warning,
+    )
+
+
 def _claude_config_dir():
     return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
@@ -286,6 +342,16 @@ def launch_opencode(layout, slot_number, opencode_arguments, workdir=None):
     write_opencode_mcp_config(workdir)
     os.chdir(workdir)
     _exec_with_slot_port(layout, slot_number, ["opencode", *opencode_arguments])
+
+
+def launch_agy(layout, slot_number, agy_arguments, workdir=None):
+    """Replace this process with Antigravity CLI connected to the slot's image, running in the workdir."""
+    _warn_if_slot_stopped(layout, slot_number)
+    workdir = agent_workdir(workdir)
+    sis_port = slot_ports(layout, slot_number)["sis"]
+    write_agy_mcp_config(workdir, sis_port=sis_port)
+    os.chdir(workdir)
+    _exec_with_slot_port(layout, slot_number, ["agy", *agy_arguments])
 
 
 def launch_claude(layout, slot_number, claude_arguments, workdir=None):
