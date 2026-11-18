@@ -54,6 +54,8 @@ Name it with a three-digit prefix greater than `001_` (`002_` to `999_`): the or
 Each script only loads code; `load_libs.st` saves and quits. Scripts you add are ignored by git.
 The build stops at the first script that fails, and the error names that script.
 
+For example, `pds/st/libs/002_neo_json.st` to load NeoJSON:
+
 ```smalltalk
 Metacello new
   baseline: 'NeoJSON';
