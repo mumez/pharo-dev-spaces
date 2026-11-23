@@ -130,10 +130,10 @@ def default_slot_port(slot_number):
     return slot_start_port() + slot_number - 1
 
 
-def slot_start_port_setting():
+def slot_start_port_setting(config=None):
     """SIS port of slot 1 (PDS_SLOT_START_PORT, pds.json slotStartPort, default 8087) with its source."""
     highest_start_port = HIGHEST_SIS_PORT - (len(SLOT_NUMBERS) - 1)  # slot 5 and its Ripple port must fit
-    return configured_port("PDS_SLOT_START_PORT", "slotStartPort", DEFAULT_SLOT_START_PORT, highest_start_port)
+    return configured_port("PDS_SLOT_START_PORT", "slotStartPort", DEFAULT_SLOT_START_PORT, highest_start_port, config)
 
 
 def slot_start_port():

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from pds import cli
+from pds import cli, config
 from pds.cli import build_parser
 from tests.test_baseline import SAMPLE_REPOSITORY
 
@@ -175,3 +175,14 @@ def test_config_without_pds_json_has_no_config_file(tmp_path, monkeypatch, capsy
     assert cli.main(["config"]) == 0
 
     assert json.loads(capsys.readouterr().out)["configFile"] is None
+
+
+def test_config_loads_pds_json_once(write_pds_json, monkeypatch, capsys):
+    write_pds_json({"devBasePort": 2001})
+    loaded_files = []
+    original_load_config = config.load_config
+    monkeypatch.setattr(config, "load_config", lambda path: loaded_files.append(path) or original_load_config(path))
+
+    assert cli.main(["config"]) == 0
+
+    assert len(loaded_files) == 1

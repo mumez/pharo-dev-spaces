@@ -18,6 +18,14 @@ def find_config_file():
     return None
 
 
+def nearest_config():
+    """The nearest pds.json loaded once: {"file", "directory", "ports"}, or {"file": None, "ports": {}} without one."""
+    config_file = find_config_file()
+    if config_file is None:
+        return {"file": None, "ports": {}}
+    return {"file": config_file, **load_config(config_file)}
+
+
 def load_config(config_file):
     """{"directory": absolute pds root, "ports": {key: value}} from `config_file`; port ranges are checked by users."""
     try:
