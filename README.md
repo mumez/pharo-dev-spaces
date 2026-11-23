@@ -72,20 +72,20 @@ Without further setup, `pds` uses this checkout as its root. To pick a root and 
 
 pds does not change directory: `--workdir`, `add-project .`, and the agent a slot launches still use your cwd. Register the repository explicitly with `pds add-project . --write`.
 
-Precedence, highest first: `slots/slotN/ports.json` (per slot) > environment variables (`PDS_ROOT`, `PDS_*_PORT`) > `pds.json` > defaults. `pds config` prints what it resolved and where each value came from:
+Precedence, highest first: `slots/slotN/ports.json` (per slot) > environment variables (`PDS_ROOT`, `PDS_*_PORT`) > `pds.json` > defaults. `pds config` prints what it resolved and where each value came from. For example, in `~/git/MyApp` with the `pds.json` above (saved as `~/git/MyApp/pds.json`, with the checkout at `~/git/pharo-dev-spaces`) and `PDS_BUILD_PORT` overriding its `buildPort`:
 
 ```bash
-pds config
+PDS_BUILD_PORT=18096 pds config
 ```
 
 ```json
 {
-  "root": {"value": "/home/me/pharo-dev-spaces", "source": "pds.json:/home/me/git/MyApp/pds.json"},
+  "root": {"value": "/home/me/git/pharo-dev-spaces", "source": "pds.json:/home/me/git/MyApp/pds.json"},
   "configFile": "/home/me/git/MyApp/pds.json",
   "ports": {
     "devBasePort": {"value": 2001, "source": "pds.json"},
-    "slotStartPort": {"value": 8087, "source": "default"},
-    "buildPort": {"value": 2010, "source": "env:PDS_BUILD_PORT"}
+    "slotStartPort": {"value": 2002, "source": "pds.json"},
+    "buildPort": {"value": 18096, "source": "env:PDS_BUILD_PORT"}
   }
 }
 ```
