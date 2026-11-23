@@ -5,6 +5,14 @@ import pytest
 from pds.layout import Layout
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+PORT_ENVIRONMENT_VARIABLES = ("PDS_DEV_BASE_PORT", "PDS_SLOT_START_PORT", "PDS_BUILD_PORT")
+
+
+@pytest.fixture(autouse=True)
+def default_pds_ports(monkeypatch):
+    """Tests expect the default ports regardless of the developer's shell."""
+    for variable in PORT_ENVIRONMENT_VARIABLES:
+        monkeypatch.delenv(variable, raising=False)
 
 
 @pytest.fixture

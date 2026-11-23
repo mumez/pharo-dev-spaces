@@ -17,11 +17,13 @@ Currently targets Pharo 14, Claude Code, Cursor Agent (CLI), and Linux (WSL).
 
 Each image `pds` starts gets its own ports, so images never collide:
 
-| Image | SIS (`PHARO_SIS_PORT`) | Ripple / WebUI (`PHARO_RIPPLE_PORT`) |
-|---|---|---|
-| standalone (`run-dev-base`) | 8086 | 9086 |
-| slot N (1–5) | 8086 + N | 9086 + N |
-| snapshot build | 8096 | 9096 |
+| Image | SIS (`PHARO_SIS_PORT`) | Ripple / WebUI (`PHARO_RIPPLE_PORT`) | Set SIS with |
+|---|---|---|---|
+| standalone (`run-dev-base`) | 8086 | 9086 | `PDS_DEV_BASE_PORT` |
+| slot N (1–5) | 8086 + N | 9086 + N | `PDS_SLOT_START_PORT` (port of slot 1; slot N uses it + N − 1) |
+| builds (`build-snapshot`, `prepare-dev-base`, `slot N reset --ref/--load`) | 8096 | 9096 | `PDS_BUILD_PORT` |
+
+The table shows the defaults. Ripple always listens on SIS + 1000. For example, `PDS_SLOT_START_PORT=18087` puts slots 1–5 on SIS 18087–18091 and Ripple 19087–19091.
 
 To move a slot off a port another program already uses, put `slots/slotN/ports.json` next to its image.
 Only the keys you write override the defaults (`ripple` still follows `sis` + 1000 unless given):

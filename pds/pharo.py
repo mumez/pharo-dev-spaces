@@ -3,10 +3,28 @@ import socket
 import subprocess
 
 # SIS starts in every image we launch; builds use their own port so they never clash with slots or 8086.
-STANDALONE_SIS_PORT = 8086  # reserved for a lone GUI/headless image (e.g. run-dev-base)
-BUILD_SIS_PORT = 8096  # past slot 5 (8091); 8092-8095 stay free for future slots
+DEFAULT_STANDALONE_SIS_PORT = 8086  # reserved for a lone GUI/headless image (e.g. run-dev-base)
+DEFAULT_BUILD_SIS_PORT = 8096  # past slot 5 (8091); 8092-8095 stay free for future slots
 # Ripple (AgenticBrowser WebUI) also listens in every image; keep it next to the SIS port so images never share it.
 RIPPLE_PORT_OFFSET_FROM_SIS = 1000
+
+
+def port_from_environment(variable_name, default_port):
+    """`default_port` unless the environment variable `variable_name` gives a port (1-65535)."""
+    value = os.environ.get(variable_name)
+    if not value:
+        return default_port
+    if not value.isdigit() or not 1 <= int(value) <= 65535:
+        raise ValueError(f"{variable_name} must be a port number (1-65535), got {value!r}")
+    return int(value)
+
+
+def standalone_sis_port():
+    return port_from_environment("PDS_DEV_BASE_PORT", DEFAULT_STANDALONE_SIS_PORT)
+
+
+def build_sis_port():
+    return port_from_environment("PDS_BUILD_PORT", DEFAULT_BUILD_SIS_PORT)
 
 
 class PharoRunError(RuntimeError):

@@ -8,12 +8,14 @@ from pds import pharo
 from pds.pharo import (
     PharoRunError,
     PortInUseError,
+    build_sis_port,
     ensure_pharo_ports_available,
     launch_pharo_ui,
     pharo_environment,
     pharo_ui_command,
     run_pharo,
     script_command,
+    standalone_sis_port,
 )
 
 
@@ -154,3 +156,24 @@ def test_ripple_port_can_be_set_apart_from_sis_port():
 
     assert environment["PHARO_SIS_PORT"] == "8089"
     assert environment["PHARO_RIPPLE_PORT"] == "9189"
+
+
+def test_standalone_and_build_ports_default_to_8086_and_8096():
+    assert standalone_sis_port() == 8086
+    assert build_sis_port() == 8096
+
+
+def test_standalone_and_build_ports_come_from_environment(monkeypatch):
+    monkeypatch.setenv("PDS_DEV_BASE_PORT", "18086")
+    monkeypatch.setenv("PDS_BUILD_PORT", "18096")
+
+    assert standalone_sis_port() == 18086
+    assert build_sis_port() == 18096
+
+
+@pytest.mark.parametrize("value", ["abc", "0", "65536"])
+def test_invalid_port_in_environment_is_rejected(monkeypatch, value):
+    monkeypatch.setenv("PDS_BUILD_PORT", value)
+
+    with pytest.raises(ValueError, match="PDS_BUILD_PORT"):
+        build_sis_port()

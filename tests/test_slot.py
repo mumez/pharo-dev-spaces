@@ -27,6 +27,13 @@ def test_slot_port_is_8086_plus_slot_number(slot_number, port):
     assert default_slot_port(slot_number) == port
 
 
+def test_slot_ports_start_at_pds_slot_start_port(monkeypatch):
+    monkeypatch.setenv("PDS_SLOT_START_PORT", "18087")
+
+    assert default_slot_port(1) == 18087
+    assert default_slot_port(5) == 18091
+
+
 @pytest.mark.parametrize("slot_number", [0, 6])
 def test_slot_number_outside_1_to_5_is_rejected(slot_number):
     with pytest.raises(ValueError):

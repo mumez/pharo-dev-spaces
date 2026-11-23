@@ -15,7 +15,7 @@ Images build on each other:
 | snapshot | `snapshots/current/` (+ `snapshots/<date>.json` manifests) | `pds build-snapshot [--full]` |
 | slot N (1–5) | `slots/slotN/` (copy of snapshot, or dev-base if none) | `pds slot N reset` |
 
-Slot N listens on SIS port `8086+N` (Ripple `9086+N`) unless `slots/slotN/ports.json` overrides it.
+Slot N listens on SIS port `8086+N` (Ripple `9086+N`) unless `PDS_SLOT_START_PORT` (slot 1's SIS port) or `slots/slotN/ports.json` overrides it. `PDS_DEV_BASE_PORT` (default 8086) and `PDS_BUILD_PORT` (default 8096) set the standalone and build ports.
 `$PDS_HOME/README.md` is the authoritative reference; read it when something here is unclear.
 
 ## Running pds
