@@ -25,7 +25,7 @@ def load_config(config_file):
     except json.JSONDecodeError as syntax_error:
         raise ValueError(f"{config_file}: {syntax_error}") from syntax_error
     if not isinstance(config, dict) or not isinstance(config.get("directory"), str):
-        raise ValueError(f'{config_file}: "directory" (a path string) is required')  # noqa: TRY004 - a bad config value, not a programming error
+        raise ValueError(f'{config_file}: "directory" (a path string) is required')  # noqa: TRY004 - bad config value
     reject_unknown_keys(config_file, config, CONFIG_KEYS)
     ports = config.get("ports", {})
     if not isinstance(ports, dict):

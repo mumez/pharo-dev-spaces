@@ -19,11 +19,11 @@ Each image `pds` starts gets its own ports, so images never collide:
 
 | Image | SIS (`PHARO_SIS_PORT`) | Ripple / WebUI (`PHARO_RIPPLE_PORT`) | Set SIS with |
 |---|---|---|---|
-| standalone (`run-dev-base`) | 8086 | 9086 | `PDS_DEV_BASE_PORT` |
-| slot N (1–5) | 8086 + N | 9086 + N | `PDS_SLOT_START_PORT` (port of slot 1; slot N uses it + N − 1) |
-| builds (`build-snapshot`, `prepare-dev-base`, `slot N reset --ref/--load`) | 8096 | 9096 | `PDS_BUILD_PORT` |
+| standalone (`run-dev-base`) | 8086 | 9086 | `PDS_DEV_BASE_PORT` / `devBasePort` |
+| slot N (1–5) | 8086 + N | 9086 + N | `PDS_SLOT_START_PORT` / `slotStartPort` (port of slot 1; slot N uses it + N − 1) |
+| builds (`build-snapshot`, `prepare-dev-base`, `slot N reset --ref/--load`) | 8096 | 9096 | `PDS_BUILD_PORT` / `buildPort` |
 
-The table shows the defaults. Ripple always listens on SIS + 1000. For example, `PDS_SLOT_START_PORT=18087` puts slots 1–5 on SIS 18087–18091 and Ripple 19087–19091.
+The table shows the defaults; the last column lists the environment variable and the [`pds.json`](#running-pds-from-your-repositories-pdsjson) key. Ripple always listens on SIS + 1000. For example, `PDS_SLOT_START_PORT=18087` puts slots 1–5 on SIS 18087–18091 and Ripple 19087–19091.
 When you change these, keep the three ranges apart (pds does not check that they overlap); Ripple (SIS + 1000) must stay a valid port, so the variables accept at most 64535 (64531 for `PDS_SLOT_START_PORT`, so that slot 5 fits).
 
 To move a slot off a port another program already uses, put `slots/slotN/ports.json` next to its image.
@@ -47,6 +47,50 @@ uv run pds setup-plain --version 140   # plain-pharo/: Pharo 14 image + VM
 uv run pds prepare-dev-base            # dev-base/: plain + pds/st/libs/*.st (via pds/st/load_libs.st)
 uv run pds run-dev-base                # optional: open dev-base in the GUI to check it
 ```
+
+### Running pds from your repositories (`pds.json`)
+
+Install `pds` on your `PATH` so you can run it from any directory (editable, so it follows this checkout):
+
+```bash
+uv tool install -e "$PDS_HOME"   # PDS_HOME: this checkout
+```
+
+Without further setup, `pds` uses this checkout as its root. To pick a root and ports per repository, put a `pds.json` in the repository (or any parent directory; pds uses the nearest one above the cwd):
+
+```json
+{
+  "directory": "../pharo-dev-spaces",
+  "ports": { "devBasePort": 2001, "slotStartPort": 2002, "buildPort": 2010 }
+}
+```
+
+- `directory` (required) is the pds root. A relative path is resolved from the directory holding `pds.json`; it must exist.
+- `ports` and each of its keys are optional. They accept the same ranges as `PDS_DEV_BASE_PORT`, `PDS_SLOT_START_PORT`, and `PDS_BUILD_PORT`.
+- Unknown keys are errors, both at the top level and inside `ports`.
+- `pds.json` is a local setting: add it to the repository's `.gitignore` rather than committing it.
+
+pds does not change directory: `--workdir`, `add-project .`, and the agent a slot launches still use your cwd. Register the repository explicitly with `pds add-project . --write`.
+
+Precedence, highest first: `slots/slotN/ports.json` (per slot) > environment variables (`PDS_ROOT`, `PDS_*_PORT`) > `pds.json` > defaults. `pds config` prints what it resolved and where each value came from:
+
+```bash
+pds config
+```
+
+```json
+{
+  "root": {"value": "/home/me/pharo-dev-spaces", "source": "pds.json:/home/me/git/MyApp/pds.json"},
+  "configFile": "/home/me/git/MyApp/pds.json",
+  "ports": {
+    "devBasePort": {"value": 2001, "source": "pds.json"},
+    "slotStartPort": {"value": 8087, "source": "default"},
+    "buildPort": {"value": 2010, "source": "env:PDS_BUILD_PORT"}
+  }
+}
+```
+
+Per-slot ports are not included; see `pds slot N status`.
 
 ### Adding libraries to dev-base
 
@@ -148,7 +192,7 @@ A slot counts as running only if it was started with `pds slot N up` or `pds slo
 
 ## Coding agent skill
 
-`skills/pharo-dev-spaces/` is an [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) that lets a coding agent (e.g. Claude Code) operate `pds` for you, from any project. Ask it things like "create a snapshot", "clone <URL> and add it to the projects", or "run the Stick tests in a free slot". The skill runs the commands above via `uv run --project "$PDS_HOME" pds`, and follows guardrails like these:
+`skills/pharo-dev-spaces/` is an [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) that lets a coding agent (e.g. Claude Code) operate `pds` for you, from any project. Ask it things like "create a snapshot", "clone <URL> and add it to the projects", or "run the Stick tests in a free slot". The skill runs the commands above with `pds` when it is on `PATH` (so a repository's `pds.json` applies), otherwise via `uv run --project "$PDS_HOME" pds`, and follows guardrails like these:
 
 - It asks before `--force` replaces an existing base image.
 - It never stops a running slot that it only picked as free.
@@ -185,7 +229,7 @@ pharo-dev-spaces/
   slots/slot{1..5}/    # Pharo.image/.changes, pharo.pid, pharo.log, refs.json, tests.json
 ```
 
-Everything except `pds/`, `skills/`, `tests/`, and `tasks/` is generated and ignored by git. Set `PDS_ROOT` to use a different root directory.
+Everything except `pds/`, `skills/`, `tests/`, and `tasks/` is generated and ignored by git. Set `PDS_ROOT` (or `directory` in a [`pds.json`](#running-pds-from-your-repositories-pdsjson)) to use a different root directory.
 
 ## Development
 
