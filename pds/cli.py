@@ -3,9 +3,11 @@ import json
 import sys
 
 from pds.baseline import project_entry
+from pds.config import find_config_file
 from pds.dev_base import prepare_dev_base, run_dev_base
-from pds.layout import Layout
+from pds.layout import Layout, resolved_root
 from pds.mcp_config import launch_claude, launch_cursor_agent, launch_opencode
+from pds.pharo import build_sis_port_setting, standalone_sis_port_setting
 from pds.projects import DEFAULT_BRANCH, add_project_entry
 from pds.setup_plain import setup_plain
 from pds.slot import (
@@ -13,6 +15,7 @@ from pds.slot import (
     SlotOverlayError,
     SlotTestFailure,
     reset_slot,
+    slot_start_port_setting,
     slot_status,
     start_slot,
     stop_slot,
@@ -153,6 +156,11 @@ def build_parser():
     )
     build_snapshot_parser.set_defaults(handler=lambda layout, args: build_snapshot(layout, full=args.full))
 
+    config_parser = commands.add_parser(
+        "config", help="print the resolved root and ports with their sources (env / pds.json / default) as JSON"
+    )
+    config_parser.set_defaults(handler=lambda layout, args: print_json(resolved_config()))
+
     return parser
 
 
@@ -163,6 +171,20 @@ def print_json(value):
 def without_leading_double_dash(arguments):
     """argparse.REMAINDER keeps the `--` separating pds options from agent options."""
     return arguments[1:] if arguments[:1] == ["--"] else arguments
+
+
+def resolved_config():
+    root = resolved_root()
+    config_file = find_config_file()
+    return {
+        "root": {"value": str(root["value"]), "source": root["source"]},
+        "configFile": str(config_file) if config_file else None,
+        "ports": {
+            "devBasePort": standalone_sis_port_setting(),
+            "slotStartPort": slot_start_port_setting(),
+            "buildPort": build_sis_port_setting(),
+        },
+    }
 
 
 def reset_from_cli(layout, args):
