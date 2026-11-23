@@ -86,3 +86,14 @@ def test_run_dev_base_launches_gui_on_standalone_port(plain_layout, monkeypatch)
     run_dev_base(plain_layout)
 
     assert calls == [(plain_layout.dev_base_dir / "Pharo.image", 8086)]
+
+
+def test_run_dev_base_uses_pds_dev_base_port(plain_layout, monkeypatch):
+    make_image_dir(plain_layout.dev_base_dir)
+    monkeypatch.setenv("PDS_DEV_BASE_PORT", "18086")
+    calls = []
+    monkeypatch.setattr(dev_base, "launch_pharo_ui", lambda layout, image, port: calls.append(port))
+
+    run_dev_base(plain_layout)
+
+    assert calls == [18086]

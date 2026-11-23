@@ -7,7 +7,7 @@ import tempfile
 from datetime import datetime
 
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
-from pds.pharo import BUILD_SIS_PORT, run_pharo
+from pds.pharo import build_sis_port, run_pharo
 from pds.projects import branch_of, read_projects
 from pds.sources import fetch_project_sources
 from pds.st_script import render_template_file
@@ -115,7 +115,7 @@ def build_snapshot(layout, full=False, built_at=None):
             script = build_dir / BUILD_SCRIPT_FILE_NAME
             script.write_text(build_script(fetched_sources, build_dir))
             run_pharo(
-                layout, image_path(build_dir), script, port=BUILD_SIS_PORT, timeout=BUILD_TIMEOUT_SECONDS, save=True
+                layout, image_path(build_dir), script, port=build_sis_port(), timeout=BUILD_TIMEOUT_SECONDS, save=True
             )
             script.unlink()
             test_results = read_test_results(build_dir)

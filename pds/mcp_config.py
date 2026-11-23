@@ -1,7 +1,7 @@
 """Per-slot MCP configuration for Claude Code and Cursor Agent.
 
 Claude: the smalltalk-dev plugin (>= 2.4.0) reads `${SIS_PORT:-8086}`, so
-`pds slot N claude [--workdir DIR]` only sets `SIS_PORT=8086+N` and runs plain
+`pds slot N claude [--workdir DIR]` only sets `SIS_PORT` to the slot's SIS port and runs plain
 `claude` in DIR (default: cwd), keeping user and project MCP servers. Claude
 has no directory flag, so pds changes directory before exec. pds warns when the
 installed plugin still has a fixed port.
@@ -10,7 +10,7 @@ Cursor: loads `<workdir>/.cursor/mcp.json`.
 `pds slot N cursor-agent [--workdir DIR]` uses DIR (default: cwd) as
 `cursor-agent --workspace`, merges smalltalk servers into that directory's
 `.cursor/mcp.json` with `"SIS_PORT": "${env:SIS_PORT}"`, and sets
-`SIS_PORT=8086+N` in the process environment. Cursor does not support
+`SIS_PORT` to the slot's SIS port in the process environment. Cursor does not support
 `${env:NAME:-default}`, so opening the project outside pds may leave an unset
 SIS_PORT; pds warns when it changes the file.
 
@@ -18,7 +18,7 @@ opencode: loads `<workdir>/opencode.json`.
 `pds slot N opencode [--workdir DIR]` uses DIR (default: cwd), merges smalltalk
 servers into that directory's `opencode.json` with
 `"SIS_PORT": "{env:SIS_PORT}"` (opencode uses single-brace `{env:NAME}`
-expansion), and sets `SIS_PORT=8086+N` in the process environment. opencode has
+expansion), and sets `SIS_PORT` to the slot's SIS port in the process environment. opencode has
 no directory flag, so pds changes directory before exec. pds warns when it
 changes the file.
 """

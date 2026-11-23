@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
-from pds.pharo import BUILD_SIS_PORT, STANDALONE_SIS_PORT, launch_pharo_ui, run_pharo
+from pds.pharo import build_sis_port, launch_pharo_ui, run_pharo, standalone_sis_port
 from pds.st_script import TEMPLATE_DIR, render_template_file
 
 # load_libs.st files in every libs/*.st in name order (001_agentic_browser.st pulls SIS), then snapshots and quits.
@@ -32,7 +32,7 @@ def prepare_dev_base(layout, force=False):
             layout,
             image_path(staging_dir),
             script,
-            port=BUILD_SIS_PORT,
+            port=build_sis_port(),
             timeout=METACELLO_LOAD_TIMEOUT_SECONDS,
             save=None,
         )
@@ -40,8 +40,8 @@ def prepare_dev_base(layout, force=False):
 
 
 def run_dev_base(layout):
-    """Open dev-base in the GUI (verification). Replaces this process; SIS on port 8086."""
+    """Open dev-base in the GUI (verification). Replaces this process; SIS on PDS_DEV_BASE_PORT (default 8086)."""
     image = image_path(layout.dev_base_dir)
     if not image.exists():
         raise FileNotFoundError(f"{image} does not exist; run `pds prepare-dev-base` first")
-    launch_pharo_ui(layout, image, STANDALONE_SIS_PORT)
+    launch_pharo_ui(layout, image, standalone_sis_port())

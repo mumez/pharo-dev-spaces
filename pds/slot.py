@@ -11,15 +11,16 @@ from pathlib import Path
 
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
 from pds.pharo import (
-    BUILD_SIS_PORT,
-    STANDALONE_SIS_PORT,
+    HIGHEST_SIS_PORT,
     PharoRunError,
     PortInUseError,
+    build_sis_port,
     default_ripple_port,
     ensure_pharo_ports_available,
     keep_alive_command,
     pharo_environment,
     pharo_ui_command,
+    port_from_environment,
     run_pharo,
 )
 from pds.projects import read_projects
@@ -28,7 +29,7 @@ from pds.sources import FetchedSource, SourceFetchError, extract_src_dir, fetch_
 from pds.st_script import render_template_file
 
 SLOT_NUMBERS = (1, 2, 3, 4, 5)
-SLOT_BASE_PORT = STANDALONE_SIS_PORT  # stays free for a standalone image; slot N listens on 8086 + N
+DEFAULT_SLOT_START_PORT = 8087  # slot N listens on start + N - 1 (8087..8091), leaving 8086 for a standalone image
 STOP_TIMEOUT_SECONDS = 10
 ORIGIN_FILE_NAME = "origin.json"
 PORTS_FILE_NAME = "ports.json"  # optional per-slot override: {"sis": 8089, "ripple": 9189}
@@ -126,11 +127,17 @@ def validate_saved_refs(entries, projects, source):
 def default_slot_port(slot_number):
     if slot_number not in SLOT_NUMBERS:
         raise ValueError(f"slot number must be one of {SLOT_NUMBERS}, got {slot_number}")
-    return SLOT_BASE_PORT + slot_number
+    return slot_start_port() + slot_number - 1
+
+
+def slot_start_port():
+    """SIS port of slot 1 (PDS_SLOT_START_PORT, default 8087)."""
+    highest_start_port = HIGHEST_SIS_PORT - (len(SLOT_NUMBERS) - 1)  # slot 5 and its Ripple port must fit
+    return port_from_environment("PDS_SLOT_START_PORT", DEFAULT_SLOT_START_PORT, highest_start_port)
 
 
 def slot_ports(layout, slot_number):
-    """SIS/Ripple ports: 8086 + N and SIS + 1000 unless overridden by keys in slots/slotN/ports.json."""
+    """SIS/Ripple ports: slot start port + N - 1 and SIS + 1000 unless overridden by keys in slots/slotN/ports.json."""
     ports_file = slot_dir(layout, slot_number) / PORTS_FILE_NAME
     try:
         overrides = json.loads(ports_file.read_text()) if ports_file.exists() else {}
@@ -305,7 +312,7 @@ def overlay_slot(layout, slot_number, *, ref_specs, load_saved, run_tests):
         saved_refs = load_saved_ref_request(layout, slot_number)
         replace_saved_refs = False
     try:
-        ensure_pharo_ports_available(pharo_environment(BUILD_SIS_PORT))
+        ensure_pharo_ports_available(pharo_environment(build_sis_port()))
     except PortInUseError as error:
         raise SlotOverlayError(str(error)) from error
     old_slot_dir = slot_dir(layout, slot_number)
@@ -323,7 +330,7 @@ def overlay_slot(layout, slot_number, *, ref_specs, load_saved, run_tests):
                     layout,
                     image_path(staging_dir),
                     script_path,
-                    port=BUILD_SIS_PORT,
+                    port=build_sis_port(),
                     timeout=BUILD_TIMEOUT_SECONDS,
                     save=True,
                 )
