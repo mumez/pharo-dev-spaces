@@ -63,7 +63,7 @@ def build_parser():
     )
     reset_parser.set_defaults(handler=reset_from_cli)
     for action, handler, help_text in (
-        ("up", start_slot, "start the slot headless with PHARO_SIS_PORT=8086+N"),
+        ("up", start_slot, "start the slot headless on its SIS port (default 8086+N)"),
         ("down", stop_slot, "stop the slot"),
     ):
         action_parser = slot_actions.add_parser(action, help=help_text)

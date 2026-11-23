@@ -171,9 +171,15 @@ def test_standalone_and_build_ports_come_from_environment(monkeypatch):
     assert build_sis_port() == 18096
 
 
-@pytest.mark.parametrize("value", ["abc", "0", "65536"])
+@pytest.mark.parametrize("value", ["abc", "0", "64536"])
 def test_invalid_port_in_environment_is_rejected(monkeypatch, value):
     monkeypatch.setenv("PDS_BUILD_PORT", value)
 
     with pytest.raises(ValueError, match="PDS_BUILD_PORT"):
         build_sis_port()
+
+
+def test_highest_port_in_environment_still_leaves_room_for_ripple(monkeypatch):
+    monkeypatch.setenv("PDS_DEV_BASE_PORT", "64535")
+
+    assert pharo_environment(standalone_sis_port())["PHARO_RIPPLE_PORT"] == "65535"

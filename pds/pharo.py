@@ -9,13 +9,16 @@ DEFAULT_BUILD_SIS_PORT = 8096  # past slot 5 (8091); 8092-8095 stay free for fut
 RIPPLE_PORT_OFFSET_FROM_SIS = 1000
 
 
-def port_from_environment(variable_name, default_port):
-    """`default_port` unless the environment variable `variable_name` gives a port (1-65535)."""
+HIGHEST_SIS_PORT = 65535 - RIPPLE_PORT_OFFSET_FROM_SIS  # Ripple (SIS + 1000) must stay a valid port
+
+
+def port_from_environment(variable_name, default_port, highest_port=HIGHEST_SIS_PORT):
+    """`default_port` unless the environment variable `variable_name` gives a port (1-`highest_port`)."""
     value = os.environ.get(variable_name)
     if not value:
         return default_port
-    if not value.isdigit() or not 1 <= int(value) <= 65535:
-        raise ValueError(f"{variable_name} must be a port number (1-65535), got {value!r}")
+    if not value.isdigit() or not 1 <= int(value) <= highest_port:
+        raise ValueError(f"{variable_name} must be a port number (1-{highest_port}), got {value!r}")
     return int(value)
 
 

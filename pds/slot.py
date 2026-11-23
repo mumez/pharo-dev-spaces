@@ -11,6 +11,7 @@ from pathlib import Path
 
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
 from pds.pharo import (
+    HIGHEST_SIS_PORT,
     PharoRunError,
     PortInUseError,
     build_sis_port,
@@ -131,7 +132,8 @@ def default_slot_port(slot_number):
 
 def slot_start_port():
     """SIS port of slot 1 (PDS_SLOT_START_PORT, default 8087)."""
-    return port_from_environment("PDS_SLOT_START_PORT", DEFAULT_SLOT_START_PORT)
+    highest_start_port = HIGHEST_SIS_PORT - (len(SLOT_NUMBERS) - 1)  # slot 5 and its Ripple port must fit
+    return port_from_environment("PDS_SLOT_START_PORT", DEFAULT_SLOT_START_PORT, highest_start_port)
 
 
 def slot_ports(layout, slot_number):
