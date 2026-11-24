@@ -1,19 +1,26 @@
+# development
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+# user-added dev-base libraries (only the default one is tracked)
+pds/st/libs/*
+!pds/st/libs/001_agentic_browser.st
+
+# skills development
+skills/*-workspace/
+skills/*/evals/
+skills/system/
+
+# pds artifacts
 plain-pharo/
-dev-pharo/
 dev-base/
 slots/
 st-projects.json
 snapshots/
 archives/
 logs/
-.venv/
-__pycache__/
-.pytest_cache/
+repos/
 crash.dmp
 PharoDebug.log
-repos/
-skills/*-workspace/
-skills/*/evals/
-# user-added dev-base libraries (only the default one is tracked)
-pds/st/libs/*
-!pds/st/libs/001_agentic_browser.st
