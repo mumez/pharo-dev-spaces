@@ -171,6 +171,9 @@ uv run pds slot 2 cursor-agent --approve-mcps --workdir ./repos/Stick -- -p "fix
 uv run pds slot 2 opencode            # run opencode with MCP pointed at slot2
 uv run pds slot 2 opencode -- run "/st-eval Smalltalk version"   # arguments after -- go to opencode
 uv run pds slot 2 opencode --workdir ./repos/Stick -- run "fix Stick"
+uv run pds slot 2 agy                 # run Antigravity CLI with MCP pointed at slot2
+uv run pds slot 2 agy -- -p "/st-eval Smalltalk version"   # arguments after -- go to agy
+uv run pds slot 2 agy --workdir ./repos/Stick -- -p "fix Stick"
 uv run pds slot 2 down                # stop
 ```
 
@@ -179,6 +182,8 @@ uv run pds slot 2 down                # stop
 `slot N cursor-agent [--workdir DIR]` runs `cursor-agent --workspace DIR` (`DIR` defaults to cwd). It merges `smalltalk-interop` / `smalltalk-validator` into `DIR/.cursor/mcp.json` without dropping other existing servers; on name clashes, smalltalk-dev wins. `smalltalk-interop` uses `"SIS_PORT": "${env:SIS_PORT}"` (Cursor expands `${env:NAME}` but not `${env:NAME:-default}`); `pds` exports `SIS_PORT` (the slot's SIS port) on launch and warns when it changes the file. Outside pds, set `SIS_PORT` yourself or expect the server default 8086. `--approve-mcps` is off by default because it auto-approves every MCP server Cursor loads, not only smalltalk; pass `--approve-mcps` to opt in. Arguments after `--` go to `cursor-agent`. Other MCP servers come from your user-level `~/.cursor/mcp.json` as usual.
 
 `slot N opencode [--workdir DIR]` merges `smalltalk-interop` / `smalltalk-validator` into `DIR/opencode.json` (`DIR` defaults to cwd) without dropping other existing servers; on name clashes, smalltalk-dev wins. `smalltalk-interop` uses `"SIS_PORT": "{env:SIS_PORT}"` (opencode expands `{env:NAME}`); `pds` exports `SIS_PORT` (the slot's SIS port) on launch and warns when it changes the file. Outside pds, set `SIS_PORT` yourself or expect the server default 8086. opencode has no directory flag, so pds changes into `DIR` before launching it. Arguments after `--` go to `opencode` (e.g. `run "..."` for non-interactive mode). Other MCP servers come from your `~/.config/opencode/opencode.json` as usual.
+
+`slot N agy [--workdir DIR]` merges `smalltalk-interop` / `smalltalk-validator` into `DIR/.agents/mcp_config.json` (`DIR` defaults to cwd) without dropping other existing servers; on name clashes, smalltalk-dev wins. `smalltalk-interop` uses `"SIS_PORT": "<port>"` for the slot; `pds` also exports `SIS_PORT=8086+N` on launch and warns when it changes the file. agy has no directory flag, so pds changes into `DIR` before launching it. Arguments after `--` go to `agy` (e.g. `-p "/st-eval Smalltalk version"` for print mode). Other MCP servers come from your `~/.gemini/config/mcp_config.json` as usual.
 
 `--ref NAME:BRANCH` resolves `NAME` to one `st-projects.json` entry: a unique baseline, otherwise a unique repository directory name, otherwise the absolute repository path. Repeat it to overlay several repositories. The set passed on that command replaces `slots/slotN/refs.json` (`[{"repository", "ref"}]`, branch names without an `origin/` prefix). `--load` reads that file and fetches the branches again, so a branch that has moved is loaded at its new commit; the file bytes stay as they were. `--ref` together with `--load` uses the `--ref` set. A plain reset still falls back to dev-base when no snapshot exists. An overlay requires `snapshots/current`.
 
