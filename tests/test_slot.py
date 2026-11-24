@@ -15,6 +15,7 @@ from pds.slot import (
     slot_dir,
     slot_origin_dir,
     slot_ports,
+    slot_start_port_setting,
     slot_status,
     start_slot,
     stop_slot,
@@ -38,6 +39,20 @@ def test_slot_start_port_leaves_room_for_slot_5_ripple_port(monkeypatch):
     monkeypatch.setenv("PDS_SLOT_START_PORT", "64532")
 
     with pytest.raises(ValueError, match="PDS_SLOT_START_PORT"):
+        default_slot_port(1)
+
+
+def test_slot_start_port_comes_from_pds_json(write_pds_json):
+    write_pds_json({"slotStartPort": 2002})
+
+    assert slot_start_port_setting() == {"value": 2002, "source": "pds.json"}
+    assert default_slot_port(5) == 2006
+
+
+def test_slot_start_port_in_pds_json_leaves_room_for_slot_5_ripple_port(write_pds_json):
+    write_pds_json({"slotStartPort": 64532})
+
+    with pytest.raises(ValueError, match="slotStartPort"):
         default_slot_port(1)
 
 

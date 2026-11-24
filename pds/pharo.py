@@ -2,6 +2,8 @@ import os
 import socket
 import subprocess
 
+from pds.config import nearest_config
+
 # SIS starts in every image we launch; builds use their own port so they never clash with slots or 8086.
 DEFAULT_STANDALONE_SIS_PORT = 8086  # reserved for a lone GUI/headless image (e.g. run-dev-base)
 DEFAULT_BUILD_SIS_PORT = 8096  # past slot 5 (8091); 8092-8095 stay free for future slots
@@ -12,22 +14,40 @@ RIPPLE_PORT_OFFSET_FROM_SIS = 1000
 HIGHEST_SIS_PORT = 65535 - RIPPLE_PORT_OFFSET_FROM_SIS  # Ripple (SIS + 1000) must stay a valid port
 
 
-def port_from_environment(variable_name, default_port, highest_port=HIGHEST_SIS_PORT):
-    """`default_port` unless the environment variable `variable_name` gives a port (1-`highest_port`)."""
-    value = os.environ.get(variable_name)
-    if not value:
-        return default_port
-    if not value.isdigit() or not 1 <= int(value) <= highest_port:
-        raise ValueError(f"{variable_name} must be a port number (1-{highest_port}), got {value!r}")
-    return int(value)
+def configured_port(variable_name, config_key, default_port, highest_port=HIGHEST_SIS_PORT, config=None):
+    """{"value", "source"} of a port (1-`highest_port`): env `variable_name` > pds.json ports.`config_key` > default.
+
+    `config` is a preloaded `nearest_config()`; pds.json is read only when the environment does not decide."""
+    environment_value = os.environ.get(variable_name)
+    if environment_value:
+        if not environment_value.isdigit() or not 1 <= int(environment_value) <= highest_port:
+            raise ValueError(f"{variable_name} must be a port number (1-{highest_port}), got {environment_value!r}")
+        return {"value": int(environment_value), "source": f"env:{variable_name}"}
+    config = config or nearest_config()
+    if config_key not in config["ports"]:
+        return {"value": default_port, "source": "default"}
+    config_value = config["ports"][config_key]
+    if type(config_value) is not int or not 1 <= config_value <= highest_port:
+        raise ValueError(
+            f"{config['file']}: ports.{config_key} must be a port number (1-{highest_port}), got {config_value!r}"
+        )
+    return {"value": config_value, "source": "pds.json"}
+
+
+def standalone_sis_port_setting(config=None):
+    return configured_port("PDS_DEV_BASE_PORT", "devBasePort", DEFAULT_STANDALONE_SIS_PORT, config=config)
 
 
 def standalone_sis_port():
-    return port_from_environment("PDS_DEV_BASE_PORT", DEFAULT_STANDALONE_SIS_PORT)
+    return standalone_sis_port_setting()["value"]
+
+
+def build_sis_port_setting(config=None):
+    return configured_port("PDS_BUILD_PORT", "buildPort", DEFAULT_BUILD_SIS_PORT, config=config)
 
 
 def build_sis_port():
-    return port_from_environment("PDS_BUILD_PORT", DEFAULT_BUILD_SIS_PORT)
+    return build_sis_port_setting()["value"]
 
 
 class PharoRunError(RuntimeError):

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from pds import cli
+from pds import cli, config
 from pds.cli import build_parser
 from tests.test_baseline import SAMPLE_REPOSITORY
 
@@ -150,3 +150,39 @@ def test_add_project_writes_requested_branch(layout, monkeypatch, capsys):
 
     assert entry["branch"] == "main"
     assert json.loads(layout.projects_file.read_text())[0]["branch"] == "main"
+
+
+def test_config_prints_resolved_root_and_ports_with_their_sources(write_pds_json, tmp_path, monkeypatch, capsys):
+    config_file = write_pds_json({"devBasePort": 2001, "buildPort": 2010})
+    monkeypatch.setenv("PDS_BUILD_PORT", "18096")
+
+    assert cli.main(["config"]) == 0
+
+    assert json.loads(capsys.readouterr().out) == {
+        "root": {"value": str(tmp_path / "pds-root"), "source": f"pds.json:{config_file}"},
+        "configFile": str(config_file),
+        "ports": {
+            "devBasePort": {"value": 2001, "source": "pds.json"},
+            "slotStartPort": {"value": 8087, "source": "default"},
+            "buildPort": {"value": 18096, "source": "env:PDS_BUILD_PORT"},
+        },
+    }
+
+
+def test_config_without_pds_json_has_no_config_file(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    assert cli.main(["config"]) == 0
+
+    assert json.loads(capsys.readouterr().out)["configFile"] is None
+
+
+def test_config_loads_pds_json_once(write_pds_json, monkeypatch, capsys):
+    write_pds_json({"devBasePort": 2001})
+    loaded_files = []
+    original_load_config = config.load_config
+    monkeypatch.setattr(config, "load_config", lambda path: loaded_files.append(path) or original_load_config(path))
+
+    assert cli.main(["config"]) == 0
+
+    assert len(loaded_files) == 1
