@@ -4,8 +4,10 @@
  (e.g. github://... in a BaselineOf), so the local sources are not replaced by the remote ones.
  Iceberg repositories in the (deleted) pharo-local/iceberg cache are forgotten before loading, so stale
  registrations from the base image do not break the load, and after loading, before the image is saved.
- A package modified in the image (e.g. a base image dependency) is overwritten by the loaded version:
- the MCMergeOrLoadWarning dialog would otherwise block the headless image forever."
+ A package modified in the image is overwritten by the loaded version: the MCMergeOrLoadWarning dialog
+ would otherwise block the headless image forever. This applies to every package being loaded, including a
+ deliberate in-image change to a listed project, which is intended: a build loads the sources from git.
+ It does not touch a local project kept with useLoaded above, because its packages are not loaded again."
 | projects localBaselineNames |
 projects := {{PROJECTS}}.
 localBaselineNames := projects collect: [ :each | each at: 1 ].
