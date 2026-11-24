@@ -6,7 +6,7 @@ from pds.baseline import project_entry
 from pds.config import nearest_config
 from pds.dev_base import prepare_dev_base, run_dev_base
 from pds.layout import Layout, resolved_root
-from pds.mcp_config import launch_claude, launch_cursor_agent, launch_opencode
+from pds.mcp_config import launch_agy, launch_claude, launch_cursor_agent, launch_opencode
 from pds.pharo import build_sis_port_setting, standalone_sis_port_setting
 from pds.projects import DEFAULT_BRANCH, add_project_entry
 from pds.setup_plain import setup_plain
@@ -127,6 +127,22 @@ def build_parser():
             layout,
             args.slot_number,
             without_leading_double_dash(args.opencode_arguments),
+            workdir=args.workdir,
+        )
+    )
+
+    agy_parser = slot_actions.add_parser("agy", help="run Antigravity CLI with MCP pointed at the slot")
+    agy_parser.add_argument(
+        "--workdir",
+        default=None,
+        help="directory agy runs in and for .agents/mcp_config.json (default: cwd)",
+    )
+    agy_parser.add_argument("agy_arguments", nargs=argparse.REMAINDER, help="passed to agy (after --)")
+    agy_parser.set_defaults(
+        handler=lambda layout, args: launch_agy(
+            layout,
+            args.slot_number,
+            without_leading_double_dash(args.agy_arguments),
             workdir=args.workdir,
         )
     )

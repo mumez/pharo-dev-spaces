@@ -6,13 +6,16 @@ from pds import mcp_config
 from pds.mcp_config import (
     _jsonc_to_json,
     agent_workdir,
+    agy_mcp_config,
     cursor_agent_command,
     cursor_mcp_config,
     installed_smalltalk_dev_plugin_follows_sis_port,
+    launch_agy,
     launch_claude,
     launch_cursor_agent,
     launch_opencode,
     opencode_mcp_config,
+    write_agy_mcp_config,
     write_cursor_mcp_config,
     write_opencode_mcp_config,
 )
@@ -197,6 +200,75 @@ def test_write_opencode_mcp_config_follows_symlink_inside_workdir(tmp_path):
     assert "smalltalk-interop" in json.loads(target.read_text())["mcp"]
 
 
+def test_agy_mcp_config_sets_sis_port():
+    servers = agy_mcp_config(sis_port=8088)["mcpServers"]
+
+    assert servers["smalltalk-interop"]["env"]["SIS_PORT"] == "8088"
+    assert "smalltalk-validator" in servers
+
+
+def test_agy_mcp_config_without_sis_port_omits_sis_port_env():
+    servers = agy_mcp_config()["mcpServers"]
+
+    assert "env" not in servers["smalltalk-interop"]
+    assert "smalltalk-validator" in servers
+
+
+def test_agy_mcp_config_merges_into_existing_servers_without_dropping_them():
+    existing = {
+        "mcpServers": {
+            "playwright": {"command": "npx", "args": ["-y", "@playwright/mcp"]},
+            "smalltalk-interop": {"command": "other", "env": {"SIS_PORT": "9999"}},
+        },
+        "keepThisTopLevel": True,
+    }
+
+    merged = agy_mcp_config(existing=existing, sis_port=8088)
+
+    assert merged["keepThisTopLevel"] is True
+    assert merged["mcpServers"]["playwright"] == existing["mcpServers"]["playwright"]
+    assert merged["mcpServers"]["smalltalk-interop"]["env"]["SIS_PORT"] == "8088"
+    assert "smalltalk-validator" in merged["mcpServers"]
+
+
+def test_write_agy_mcp_config_preserves_existing_project_servers_and_warns(tmp_path, capsys):
+    workdir = tmp_path / "Stick"
+    workdir.mkdir()
+    path = workdir / ".agents" / "mcp_config.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"mcpServers": {"my-server": {"command": "true"}}}) + "\n")
+
+    write_agy_mcp_config(workdir, sis_port=8088)
+
+    servers = json.loads(path.read_text())["mcpServers"]
+    assert servers["my-server"] == {"command": "true"}
+    assert servers["smalltalk-interop"]["env"]["SIS_PORT"] == "8088"
+    assert "merged smalltalk MCP servers" in capsys.readouterr().err
+
+
+def test_write_agy_mcp_config_does_not_warn_when_unchanged(tmp_path, capsys):
+    workdir = tmp_path / "Stick"
+    write_agy_mcp_config(workdir, sis_port=8088)
+    capsys.readouterr()
+
+    write_agy_mcp_config(workdir, sis_port=8088)
+
+    assert capsys.readouterr().err == ""
+
+
+def test_write_agy_mcp_config_follows_symlink_inside_workdir(tmp_path):
+    workdir = tmp_path / "Stick"
+    (workdir / "config").mkdir(parents=True)
+    target = workdir / "config" / "mcp_config.json"
+    target.write_text("{}")
+    (workdir / ".agents").mkdir(parents=True)
+    (workdir / ".agents" / "mcp_config.json").symlink_to(target)
+
+    write_agy_mcp_config(workdir, sis_port=8088)
+
+    assert "smalltalk-interop" in json.loads(target.read_text())["mcpServers"]
+
+
 @pytest.mark.parametrize(
     ("jsonc", "expected"),
     [
@@ -257,6 +329,50 @@ def test_launch_opencode_with_workdir_sets_sis_port_for_each_slot(layout, monkey
     assert mcp_config.os.environ["SIS_PORT"] == "8089"
     assert changed_dirs == [stick.resolve(), stick.resolve()]
     assert executed[-1] == ["opencode", "run", "fix tests"]
+
+
+def test_launch_agy_defaults_workdir_to_cwd(layout, monkeypatch, capsys, tmp_path):
+    executed = []
+    changed_dirs = []
+    workdir = tmp_path / "cwd-project"
+    workdir.mkdir()
+    monkeypatch.delenv("SIS_PORT", raising=False)
+    monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
+    monkeypatch.setattr(mcp_config.os, "chdir", changed_dirs.append)
+    monkeypatch.setattr(mcp_config.os, "getcwd", lambda: str(workdir))
+
+    launch_agy(layout, 2, ["-p", "/st-eval Smalltalk version"])
+
+    err = capsys.readouterr().err
+    assert "pds slot 2 up" in err
+    assert "merged smalltalk MCP servers" in err
+    assert json.loads((workdir / ".agents" / "mcp_config.json").read_text()) == agy_mcp_config(sis_port=8088)
+    assert mcp_config.os.environ["SIS_PORT"] == "8088"
+    assert changed_dirs == [workdir.resolve()]
+    assert executed[0] == ["agy", "-p", "/st-eval Smalltalk version"]
+
+
+def test_launch_agy_with_workdir_sets_sis_port_for_each_slot(layout, monkeypatch, capsys, tmp_path):
+    executed = []
+    changed_dirs = []
+    stick = tmp_path / "Stick"
+    stick.mkdir()
+    monkeypatch.delenv("SIS_PORT", raising=False)
+    monkeypatch.setattr(mcp_config.os, "execvp", lambda program, command: executed.append(command))
+    monkeypatch.setattr(mcp_config.os, "chdir", changed_dirs.append)
+
+    launch_agy(layout, 1, ["-p", "fix tests"], workdir=stick)
+    assert mcp_config.os.environ["SIS_PORT"] == "8087"
+    config1 = json.loads((stick / ".agents" / "mcp_config.json").read_text())
+    assert config1["mcpServers"]["smalltalk-interop"]["env"]["SIS_PORT"] == "8087"
+
+    launch_agy(layout, 3, ["-p", "fix tests"], workdir=stick)
+    assert mcp_config.os.environ["SIS_PORT"] == "8089"
+    config3 = json.loads((stick / ".agents" / "mcp_config.json").read_text())
+    assert config3["mcpServers"]["smalltalk-interop"]["env"]["SIS_PORT"] == "8089"
+
+    assert changed_dirs == [stick.resolve(), stick.resolve()]
+    assert executed[-1] == ["agy", "-p", "fix tests"]
 
 
 def test_agent_workdir_defaults_to_cwd(monkeypatch, tmp_path):

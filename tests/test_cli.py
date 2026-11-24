@@ -115,6 +115,34 @@ def test_slot_opencode_passes_workdir(monkeypatch):
     assert launches == [(2, ["--prompt", "fix Stick"], "./repos/Stick")]
 
 
+def test_slot_agy_passes_arguments_after_double_dash(monkeypatch):
+    launches = []
+    monkeypatch.setattr(
+        cli,
+        "launch_agy",
+        lambda layout, slot_number, arguments, workdir=None: launches.append((slot_number, arguments, workdir)),
+    )
+    args = build_parser().parse_args(["slot", "2", "agy", "--", "-p", "/st-eval Smalltalk version"])
+
+    args.handler(None, args)
+
+    assert launches == [(2, ["-p", "/st-eval Smalltalk version"], None)]
+
+
+def test_slot_agy_passes_workdir(monkeypatch):
+    launches = []
+    monkeypatch.setattr(
+        cli,
+        "launch_agy",
+        lambda layout, slot_number, arguments, workdir=None: launches.append((slot_number, arguments, workdir)),
+    )
+    args = build_parser().parse_args(["slot", "2", "agy", "--workdir", "./repos/Stick", "--", "-p", "fix Stick"])
+
+    args.handler(None, args)
+
+    assert launches == [(2, ["-p", "fix Stick"], "./repos/Stick")]
+
+
 def test_slot_number_outside_fixed_slots_is_rejected():
     with pytest.raises(SystemExit):
         build_parser().parse_args(["slot", "6", "up"])

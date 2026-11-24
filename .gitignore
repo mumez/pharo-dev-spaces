@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# claude
+CLAUDE.local.md
+
 # user-added dev-base libraries (only the default one is tracked)
 pds/st/libs/*
 !pds/st/libs/001_agentic_browser.st
