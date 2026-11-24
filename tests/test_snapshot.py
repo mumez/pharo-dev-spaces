@@ -179,6 +179,13 @@ def test_load_script_forgets_iceberg_cache_repositories_before_and_after_loading
     assert script.index(forget) < load < script.rindex(forget)
 
 
+def test_load_script_loads_over_packages_modified_in_the_image(tmp_path):
+    """A headless image would block forever on the MCMergeOrLoadWarning dialog."""
+    script = snapshot.load_script([FetchedSource(PROJECT, "abc123", tmp_path)])
+
+    assert "on: MCMergeOrLoadWarning do: [ :warning | warning load ]" in script
+
+
 def test_forget_iceberg_cache_repositories_script_selects_repositories_inside_pharo_local_iceberg():
     script = FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT.read_text()
 
@@ -289,3 +296,31 @@ def test_load_script_forgets_only_repositories_registered_inside_the_iceberg_cac
     run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8097, timeout=120, save=True)
 
     assert result_file.read_text() == "#('PdsKeptRepository')"
+
+
+@pytest.mark.pharo
+def test_reloading_a_baseline_replaces_a_package_modified_in_the_image(pharo_layout, tmp_path):
+    from pds.image_dir import copy_image
+    from pds.pharo import run_pharo
+
+    image_dir = tmp_path / "image"
+    copy_image(pharo_layout, pharo_layout.plain_dir, image_dir)
+    src_dir = tmp_path / "src"
+    result_file = tmp_path / "result.txt"
+    script = tmp_path / "load.st"
+    probe_source = FetchedSource({"baseline": "PdsProbe", "groups": ["default"]}, "sha", src_dir)
+    write_probe_repository(src_dir, ["kept"])
+    script.write_text(
+        snapshot.load_script([probe_source])
+        + "\n(Smalltalk at: #PdsProbe) compile: 'changedInImage ^ 2' classified: 'probe'."
+    )
+    run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8097, timeout=120, save=True)
+
+    write_probe_repository(src_dir, ["kept", "added"])
+    script.write_text(
+        snapshot.load_script([probe_source]) + f"\n'{result_file}' asFileReference ensureDelete; writeStreamDo: [ :s | "
+        "s nextPutAll: ((Smalltalk at: #PdsProbe) selectors sorted joinUsing: ' ') ]."
+    )
+    run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8097, timeout=60, save=True)
+
+    assert result_file.read_text() == "added kept"
