@@ -21,7 +21,9 @@ def copy_image(layout, source_dir, target_dir):
 
 
 def remove_iceberg_cache(image_dir):
-    """Iceberg clones of Metacello dependencies are not needed after loading."""
+    """Iceberg clones of Metacello dependencies are not needed after loading.
+
+    st/forget_iceberg_cache_repositories.st forgets the image's registrations of these clones; keep both in sync."""
     shutil.rmtree(Path(image_dir) / "pharo-local" / "iceberg", ignore_errors=True)
 
 

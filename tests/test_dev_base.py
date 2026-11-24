@@ -3,6 +3,7 @@ import pytest
 from pds import dev_base
 from pds.dev_base import DEV_BASE_LIBS_DIR, load_libs_script, prepare_dev_base, run_dev_base
 from pds.pharo import PharoRunError
+from pds.st_script import FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT
 from tests.test_image_dir import make_image_dir
 
 
@@ -97,3 +98,11 @@ def test_run_dev_base_uses_pds_dev_base_port(plain_layout, monkeypatch):
     run_dev_base(plain_layout)
 
     assert calls == [18086]
+
+
+def test_load_libs_script_forgets_iceberg_cache_repositories_before_saving(tmp_path):
+    script = load_libs_script(tmp_path)
+
+    forget = f"'{FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT}' asFileReference fileIn."
+    assert forget in script
+    assert script.index(forget) < script.index("Smalltalk snapshot: true andQuit: true.")
