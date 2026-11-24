@@ -1,6 +1,6 @@
 [project]
 name = "pharo-dev-spaces"
-version = "1.2.0"
+version = "1.2.1"
 description = "Disposable Pharo images and daily snapshots for AI coding agents"
 license = "MIT"
 license-files = ["LICENSE"]
