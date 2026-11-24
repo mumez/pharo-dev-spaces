@@ -15,12 +15,12 @@ from pds.pharo import (
     PharoRunError,
     PortInUseError,
     build_sis_port,
+    configured_port,
     default_ripple_port,
     ensure_pharo_ports_available,
     keep_alive_command,
     pharo_environment,
     pharo_ui_command,
-    port_from_environment,
     run_pharo,
 )
 from pds.projects import read_projects
@@ -130,10 +130,14 @@ def default_slot_port(slot_number):
     return slot_start_port() + slot_number - 1
 
 
-def slot_start_port():
-    """SIS port of slot 1 (PDS_SLOT_START_PORT, default 8087)."""
+def slot_start_port_setting(config=None):
+    """SIS port of slot 1 (PDS_SLOT_START_PORT, pds.json slotStartPort, default 8087) with its source."""
     highest_start_port = HIGHEST_SIS_PORT - (len(SLOT_NUMBERS) - 1)  # slot 5 and its Ripple port must fit
-    return port_from_environment("PDS_SLOT_START_PORT", DEFAULT_SLOT_START_PORT, highest_start_port)
+    return configured_port("PDS_SLOT_START_PORT", "slotStartPort", DEFAULT_SLOT_START_PORT, highest_start_port, config)
+
+
+def slot_start_port():
+    return slot_start_port_setting()["value"]
 
 
 def slot_ports(layout, slot_number):

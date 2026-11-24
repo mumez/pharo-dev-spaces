@@ -22,12 +22,15 @@ Slot N listens on SIS port `8086+N` (Ripple `9086+N`) unless `PDS_SLOT_START_POR
 
 - `$PDS_HOME` points at the pharo-dev-spaces checkout. Check it once (`echo "$PDS_HOME"`); if it is
   empty or the directory has no `pyproject.toml`, ask the user for the path rather than guessing.
-- Run every command as `uv run --project "$PDS_HOME" pds <command>` (below abbreviated `pds`).
-  This works from any cwd. If `PDS_ROOT` is set, pds uses that as the root instead of `$PDS_HOME`;
-  mention it to the user if the two differ.
-- Start with the state the task depends on, not assumptions: `pds list-slots` for slot work (JSON
-  per slot: `running`, `hasImage`, `port`, `origin`, `savedRefs`, `tests`), and `ls "$PDS_HOME"` /
-  `cat "$PDS_HOME/st-projects.json"` for the rest.
+- Run every command as `pds <command>` from the cwd if `pds` is on `PATH` (`command -v pds`), so the
+  nearest `pds.json` of the repository you are in applies. Otherwise use
+  `uv run --project "$PDS_HOME" pds <command>`, which also works from any cwd (below abbreviated `pds`).
+- The pds root is `$PDS_HOME` unless a `pds.json` (`directory`) says otherwise. When
+  unsure, run `pds config` (JSON: `root`, `configFile`, `ports`, each with its `source`). If the root
+  differs from `$PDS_HOME`, mention it to the user and use that root wherever this skill says `$PDS_HOME/`
+  for generated files (`st-projects.json`, `slots/`, `snapshots/`, `logs/`, `repos/`).
+- Start with the state, not assumptions: `pds list-slots` (JSON per slot: `running`, `hasImage`,
+  `port`, `origin`, `savedRefs`, `tests`), and `ls "$PDS_HOME"` / `cat "$PDS_HOME/st-projects.json"` for the rest.
   The Pharo version shows in the `Pharo<ver>-*.sources` file name in `plain-pharo/` and
   `dev-base/`; what a snapshot contains is in `snapshots/<date>.json`.
 - `prepare-dev-base`, `build-snapshot`, and `slot N reset` with `--ref` or `--load` usually finish

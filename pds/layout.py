@@ -1,6 +1,7 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
+
+from pds.config import nearest_config
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
@@ -13,7 +14,7 @@ class Layout:
 
     @classmethod
     def default(cls):
-        return cls(Path(os.environ.get("PDS_ROOT", REPOSITORY_ROOT)).resolve())
+        return cls(resolved_root()["value"])
 
     @property
     def plain_dir(self):
@@ -42,3 +43,13 @@ class Layout:
     @property
     def projects_file(self):
         return self.root / "st-projects.json"
+
+
+def resolved_root(config=None):
+    """{"value", "source"} of the pds root: the nearest pds.json's directory > REPOSITORY_ROOT.
+
+    `config` is a preloaded `nearest_config()`."""
+    config = config or nearest_config()
+    if config["file"]:
+        return {"value": config["directory"], "source": f"pds.json:{config['file']}"}
+    return {"value": REPOSITORY_ROOT, "source": "default"}

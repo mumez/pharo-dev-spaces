@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,21 @@ def default_pds_ports(monkeypatch):
     """Tests expect the default ports regardless of the developer's shell."""
     for variable in PORT_ENVIRONMENT_VARIABLES:
         monkeypatch.delenv(variable, raising=False)
+
+
+@pytest.fixture
+def write_pds_json(tmp_path, monkeypatch):
+    """Write tmp_path/pds.json and run the test from tmp_path; the pds root is tmp_path/pds-root."""
+    (tmp_path / "pds-root").mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    def write(ports=None):
+        config = {"directory": "pds-root"} if ports is None else {"directory": "pds-root", "ports": ports}
+        config_file = tmp_path / "pds.json"
+        config_file.write_text(json.dumps(config))
+        return config_file
+
+    return write
 
 
 @pytest.fixture

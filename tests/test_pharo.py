@@ -9,6 +9,7 @@ from pds.pharo import (
     PharoRunError,
     PortInUseError,
     build_sis_port,
+    build_sis_port_setting,
     ensure_pharo_ports_available,
     launch_pharo_ui,
     pharo_environment,
@@ -16,6 +17,7 @@ from pds.pharo import (
     run_pharo,
     script_command,
     standalone_sis_port,
+    standalone_sis_port_setting,
 )
 
 
@@ -183,3 +185,31 @@ def test_highest_port_in_environment_still_leaves_room_for_ripple(monkeypatch):
     monkeypatch.setenv("PDS_DEV_BASE_PORT", "64535")
 
     assert pharo_environment(standalone_sis_port())["PHARO_RIPPLE_PORT"] == "65535"
+
+
+def test_standalone_and_build_ports_come_from_pds_json(write_pds_json):
+    write_pds_json({"devBasePort": 2001, "buildPort": 2010})
+
+    assert standalone_sis_port_setting() == {"value": 2001, "source": "pds.json"}
+    assert build_sis_port_setting() == {"value": 2010, "source": "pds.json"}
+
+
+def test_port_environment_variable_beats_pds_json(write_pds_json, monkeypatch):
+    write_pds_json({"buildPort": 2010})
+    monkeypatch.setenv("PDS_BUILD_PORT", "18096")
+
+    assert build_sis_port_setting() == {"value": 18096, "source": "env:PDS_BUILD_PORT"}
+
+
+def test_port_missing_from_pds_json_uses_the_default(write_pds_json):
+    write_pds_json({"buildPort": 2010})
+
+    assert standalone_sis_port_setting() == {"value": 8086, "source": "default"}
+
+
+@pytest.mark.parametrize("value", ["2010", 0, 64536, True])
+def test_invalid_port_in_pds_json_is_rejected(write_pds_json, value):
+    write_pds_json({"buildPort": value})
+
+    with pytest.raises(ValueError, match="pds.json: ports.buildPort"):
+        build_sis_port()
