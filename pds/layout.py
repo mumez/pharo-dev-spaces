@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,11 +46,9 @@ class Layout:
 
 
 def resolved_root(config=None):
-    """{"value", "source"} of the pds root: PDS_ROOT > the nearest pds.json's directory > REPOSITORY_ROOT.
+    """{"value", "source"} of the pds root: the nearest pds.json's directory > REPOSITORY_ROOT.
 
-    `config` is a preloaded `nearest_config()`; pds.json is read only when PDS_ROOT is unset."""
-    if os.environ.get("PDS_ROOT"):
-        return {"value": Path(os.environ["PDS_ROOT"]).resolve(), "source": "env:PDS_ROOT"}
+    `config` is a preloaded `nearest_config()`."""
     config = config or nearest_config()
     if config["file"]:
         return {"value": config["directory"], "source": f"pds.json:{config['file']}"}

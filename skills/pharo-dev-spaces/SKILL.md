@@ -25,7 +25,7 @@ Slot N listens on SIS port `8086+N` (Ripple `9086+N`) unless `PDS_SLOT_START_POR
 - Run every command as `pds <command>` from the cwd if `pds` is on `PATH` (`command -v pds`), so the
   nearest `pds.json` of the repository you are in applies. Otherwise use
   `uv run --project "$PDS_HOME" pds <command>`, which also works from any cwd (below abbreviated `pds`).
-- The pds root is `$PDS_HOME` unless `PDS_ROOT` or a `pds.json` (`directory`) says otherwise. When
+- The pds root is `$PDS_HOME` unless a `pds.json` (`directory`) says otherwise. When
   unsure, run `pds config` (JSON: `root`, `configFile`, `ports`, each with its `source`). If the root
   differs from `$PDS_HOME`, mention it to the user and use that root wherever this skill says `$PDS_HOME/`
   for generated files (`st-projects.json`, `slots/`, `snapshots/`, `logs/`, `repos/`).

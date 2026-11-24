@@ -72,7 +72,7 @@ Without further setup, `pds` uses this checkout as its root. To pick a root and 
 
 pds does not change directory: `--workdir`, `add-project .`, and the agent a slot launches still use your cwd. Register the repository explicitly with `pds add-project . --write`.
 
-Precedence, highest first: `slots/slotN/ports.json` (per slot) > environment variables (`PDS_ROOT`, `PDS_*_PORT`) > `pds.json` > defaults. `pds config` prints what it resolved and where each value came from. For example, in `~/git/MyApp` with the `pds.json` above (saved as `~/git/MyApp/pds.json`, with the checkout at `~/git/pharo-dev-spaces`) and `PDS_BUILD_PORT` overriding its `buildPort`:
+Precedence, highest first: `slots/slotN/ports.json` (per slot) > environment variables (`PDS_*_PORT`) > `pds.json` > defaults. `pds config` prints what it resolved and where each value came from. For example, in `~/git/MyApp` with the `pds.json` above (saved as `~/git/MyApp/pds.json`, with the checkout at `~/git/pharo-dev-spaces`) and `PDS_BUILD_PORT` overriding its `buildPort`:
 
 ```bash
 PDS_BUILD_PORT=18096 pds config
@@ -229,7 +229,7 @@ pharo-dev-spaces/
   slots/slot{1..5}/    # Pharo.image/.changes, pharo.pid, pharo.log, refs.json, tests.json
 ```
 
-Everything except `pds/`, `skills/`, `tests/`, and `tasks/` is generated and ignored by git. Set `PDS_ROOT` (or `directory` in a [`pds.json`](#running-pds-from-your-repositories-pdsjson)) to use a different root directory.
+Everything except `pds/`, `skills/`, `tests/`, and `tasks/` is generated and ignored by git. Set `directory` in a [`pds.json`](#running-pds-from-your-repositories-pdsjson) to use a different root directory.
 
 ## Development
 

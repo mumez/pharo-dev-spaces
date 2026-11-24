@@ -11,8 +11,8 @@ PORT_ENVIRONMENT_VARIABLES = ("PDS_DEV_BASE_PORT", "PDS_SLOT_START_PORT", "PDS_B
 
 @pytest.fixture(autouse=True)
 def default_pds_ports(monkeypatch):
-    """Tests expect the default root and ports regardless of the developer's shell."""
-    for variable in ("PDS_ROOT", *PORT_ENVIRONMENT_VARIABLES):
+    """Tests expect the default ports regardless of the developer's shell."""
+    for variable in PORT_ENVIRONMENT_VARIABLES:
         monkeypatch.delenv(variable, raising=False)
 
 

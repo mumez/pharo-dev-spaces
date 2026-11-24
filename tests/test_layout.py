@@ -12,10 +12,3 @@ def test_root_comes_from_pds_json(write_pds_json, tmp_path):
 
     assert resolved_root() == {"value": tmp_path / "pds-root", "source": f"pds.json:{config_file}"}
     assert Layout.default().root == tmp_path / "pds-root"
-
-
-def test_pds_root_environment_variable_beats_pds_json(write_pds_json, tmp_path, monkeypatch):
-    write_pds_json()
-    monkeypatch.setenv("PDS_ROOT", str(tmp_path))
-
-    assert resolved_root() == {"value": tmp_path, "source": "env:PDS_ROOT"}
