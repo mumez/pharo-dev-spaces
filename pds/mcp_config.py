@@ -26,8 +26,9 @@ agy: loads `<workdir>/.agents/mcp_config.json`.
 `pds slot N agy [--workdir DIR]` uses DIR (default: cwd), merges smalltalk
 servers into that directory's `.agents/mcp_config.json` with
 `"SIS_PORT": "<port>"`, and sets `SIS_PORT=8086+N` in the process environment.
-agy has no directory flag, so pds changes directory before exec. pds warns when
-it changes the file.
+Antigravity does not expand environment variables in MCP configs, so the port
+is baked into the config directly. agy has no directory flag, so pds changes
+directory before exec. pds warns when it changes the file.
 """
 
 SMALLTALK_INTEROP = "git+https://github.com/mumez/smalltalk-interop-mcp-server.git"
@@ -41,19 +42,26 @@ from pathlib import Path
 from pds.slot import is_slot_running, slot_ports
 
 
-def cursor_smalltalk_dev_servers():
-    """smalltalk-dev MCP servers for Cursor: port from process env via Cursor's `${env:NAME}` expansion."""
+def _stdio_smalltalk_dev_servers(sis_port=None):
+    """Stdio smalltalk-dev MCP servers (used by Cursor and agy)."""
+    server = {
+        "command": "uvx",
+        "args": ["--from", SMALLTALK_INTEROP, "smalltalk-interop-mcp-server"],
+    }
+    if sis_port is not None:
+        server["env"] = {"SIS_PORT": str(sis_port)}
     return {
-        "smalltalk-interop": {
-            "command": "uvx",
-            "args": ["--from", SMALLTALK_INTEROP, "smalltalk-interop-mcp-server"],
-            "env": {"SIS_PORT": "${env:SIS_PORT}"},
-        },
+        "smalltalk-interop": server,
         "smalltalk-validator": {
             "command": "uvx",
             "args": ["--from", SMALLTALK_VALIDATOR, "smalltalk-validator-mcp-server"],
         },
     }
+
+
+def cursor_smalltalk_dev_servers():
+    """smalltalk-dev MCP servers for Cursor: port from process env via Cursor's `${env:NAME}` expansion."""
+    return _stdio_smalltalk_dev_servers("${env:SIS_PORT}")
 
 
 def opencode_smalltalk_dev_servers():
@@ -72,20 +80,12 @@ def opencode_smalltalk_dev_servers():
 
 
 def agy_smalltalk_dev_servers(sis_port=None):
-    """smalltalk-dev MCP servers for Antigravity CLI."""
-    server = {
-        "command": "uvx",
-        "args": ["--from", SMALLTALK_INTEROP, "smalltalk-interop-mcp-server"],
-    }
-    if sis_port is not None:
-        server["env"] = {"SIS_PORT": str(sis_port)}
-    return {
-        "smalltalk-interop": server,
-        "smalltalk-validator": {
-            "command": "uvx",
-            "args": ["--from", SMALLTALK_VALIDATOR, "smalltalk-validator-mcp-server"],
-        },
-    }
+    """smalltalk-dev MCP servers for Antigravity CLI.
+
+    Antigravity does not expand environment variables in MCP configs, so the port
+    is embedded literally rather than using env interpolation.
+    """
+    return _stdio_smalltalk_dev_servers(sis_port)
 
 
 def cursor_mcp_config(existing=None):
