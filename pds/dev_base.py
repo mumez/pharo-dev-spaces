@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_replacement
 from pds.pharo import build_sis_port, launch_pharo_ui, run_pharo, standalone_sis_port
-from pds.st_script import TEMPLATE_DIR, render_template_file
+from pds.st_script import FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT, TEMPLATE_DIR, render_template_file
 
 # load_libs.st files in every libs/*.st in name order (001_agentic_browser.st pulls SIS), then snapshots and quits.
 DEV_BASE_LIBS_DIR = TEMPLATE_DIR / "libs"
@@ -12,7 +12,11 @@ METACELLO_LOAD_TIMEOUT_SECONDS = 1800
 
 
 def load_libs_script(libs_dir=DEV_BASE_LIBS_DIR):
-    return render_template_file(LOAD_LIBS_TEMPLATE, LIBS_DIR=str(libs_dir))
+    return render_template_file(
+        LOAD_LIBS_TEMPLATE,
+        LIBS_DIR=str(libs_dir),
+        FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT=str(FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT),
+    )
 
 
 def prepare_dev_base(layout, force=False):

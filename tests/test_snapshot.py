@@ -9,6 +9,7 @@ from pds import snapshot
 from pds.image_dir import image_path
 from pds.snapshot import SnapshotBuildError, build_snapshot
 from pds.sources import FetchedSource
+from pds.st_script import FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT
 from tests.test_image_dir import make_image_dir
 
 BUILT_AT = datetime(2026, 10, 13, 9, 30, 15)
@@ -169,6 +170,22 @@ def test_incremental_build_requires_current_snapshot(build_layout):
         build_snapshot(build_layout, built_at=BUILT_AT)
 
 
+def test_load_script_forgets_iceberg_cache_repositories_before_and_after_loading(tmp_path):
+    """remove_iceberg_cache deletes their clones: stale registrations break loading the same packages again."""
+    script = snapshot.load_script([FetchedSource(PROJECT, "abc123", tmp_path)])
+
+    forget = f"'{FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT}' asFileReference fileIn."
+    load = script.index("Metacello new")
+    assert script.index(forget) < load < script.rindex(forget)
+
+
+def test_forget_iceberg_cache_repositories_script_selects_repositories_inside_pharo_local_iceberg():
+    script = FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT.read_text()
+
+    assert "FileLocator localDirectory / 'iceberg'" in script
+    assert "forget" in script
+
+
 TONEL_BASELINE = """Class {{
 	#name : 'BaselineOfPdsProbe',
 	#superclass : 'BaselineOf',
@@ -239,3 +256,36 @@ def test_reloading_a_baseline_applies_changed_methods_and_baseline(pharo_layout,
 
     write_probe_repository(src_dir, ["kept", "added"], extra_packages=["PdsProbe-Added"])
     assert load_and_describe_image() == (["added", "kept"], True)
+
+
+@pytest.mark.pharo
+def test_load_script_forgets_only_repositories_registered_inside_the_iceberg_cache(pharo_layout, tmp_path):
+    from pds.image_dir import copy_image
+    from pds.pharo import run_pharo
+
+    image_dir = tmp_path / "image"
+    copy_image(pharo_layout, pharo_layout.plain_dir, image_dir)
+    src_dir = tmp_path / "src"
+    write_probe_repository(src_dir, ["kept"])
+    kept_location = tmp_path / "elsewhere" / "PdsKeptRepository"
+    kept_location.mkdir(parents=True)
+    result_file = tmp_path / "result.txt"
+    script = tmp_path / "load.st"
+    register = (
+        "IceRepository registerRepository: (IceLibgitRepository new name: 'PdsCachedRepository'; "
+        "location: FileLocator localDirectory / 'iceberg' / 'pds' / 'PdsCachedRepository'; yourself).\n"
+        "IceRepository registerRepository: (IceLibgitRepository new name: 'PdsKeptRepository'; "
+        f"location: '{kept_location}' asFileReference; yourself).\n"
+    )
+    script.write_text(register)
+    run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8097, timeout=120, save=True)
+    script.write_text(
+        snapshot.load_script([FetchedSource({"baseline": "PdsProbe", "groups": ["default"]}, "sha", src_dir)])
+        + f"\n'{result_file}' asFileReference ensureDelete; writeStreamDo: [ :s | "
+        "s nextPutAll: ((IceRepository registry collect: [ :each | each name ]) asArray "
+        "select: [ :each | each beginsWith: 'Pds' ]) sorted asArray printString ]."
+    )
+
+    run_pharo(pharo_layout, image_dir / "Pharo.image", script, port=8097, timeout=120, save=True)
+
+    assert result_file.read_text() == "#('PdsKeptRepository')"

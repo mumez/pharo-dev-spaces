@@ -10,7 +10,7 @@ from pds.image_dir import copy_image, image_path, remove_iceberg_cache, staged_r
 from pds.pharo import build_sis_port, run_pharo
 from pds.projects import branch_of, read_projects
 from pds.sources import fetch_project_sources
-from pds.st_script import render_template_file
+from pds.st_script import FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT, render_template_file
 
 BUILD_SCRIPT_FILE_NAME = "build_snapshot.st"
 TEST_RESULTS_FILE_NAME = "test-results.json"
@@ -28,6 +28,7 @@ def load_script(fetched_sources):
             [source.project["baseline"], f"tonel://{source.src_path}", source.project["groups"]]
             for source in fetched_sources
         ],
+        FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT=str(FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT),
     )
 
 

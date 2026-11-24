@@ -3,6 +3,7 @@
 from pathlib import Path
 
 TEMPLATE_DIR = Path(__file__).parent / "st"
+FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT = TEMPLATE_DIR / "forget_iceberg_cache_repositories.st"
 
 
 def st_literal(value):
