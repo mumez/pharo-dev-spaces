@@ -21,6 +21,18 @@ class SnapshotBuildError(RuntimeError):
     pass
 
 
+class SnapshotTestFailure(SnapshotBuildError):
+    """Tests failed after loading; snapshots/current is unchanged. `result` is the unsaved manifest."""
+
+    def __init__(self, result):
+        tests = result["tests"]
+        failed = tests["failures"] + tests["errors"]
+        super().__init__(
+            f"{len(failed)} of {tests['run']} tests failed; snapshots/current is unchanged:\n  " + "\n  ".join(failed)
+        )
+        self.result = result
+
+
 def load_script(fetched_sources):
     return render_template_file(
         "load_baselines.st",
@@ -55,19 +67,16 @@ def read_test_results(build_dir):
     results_file = build_dir / TEST_RESULTS_FILE_NAME
     test_results = json.loads(results_file.read_text())
     results_file.unlink()
-    failed = test_results["failures"] + test_results["errors"]
-    if failed:
-        raise SnapshotBuildError(
-            f"{len(failed)} of {test_results['run']} tests failed; snapshots/current is unchanged:\n  "
-            + "\n  ".join(failed)
-        )
     return test_results
 
 
-def write_manifest(layout, built_at, mode, base, fetched_sources, test_results):
-    build_date = built_at.date()
-    manifest = {
-        "date": build_date.isoformat(),
+def tests_failed(test_results):
+    return bool(test_results["failures"] or test_results["errors"])
+
+
+def manifest_for(built_at, mode, base, fetched_sources, test_results):
+    return {
+        "date": built_at.date().isoformat(),
         "builtAt": built_at.isoformat(timespec="seconds"),
         "mode": mode,
         "base": base,
@@ -82,7 +91,10 @@ def write_manifest(layout, built_at, mode, base, fetched_sources, test_results):
         ],
         "tests": test_results,
     }
-    (layout.snapshots_dir / f"{build_date.isoformat()}.json").write_text(json.dumps(manifest, indent=2) + "\n")
+
+
+def write_manifest(layout, manifest):
+    (layout.snapshots_dir / f"{manifest['date']}.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 
 def archive_current_snapshot(layout, build_date):
@@ -98,7 +110,10 @@ def latest_manifest_path(layout):
 
 
 def build_snapshot(layout, full=False, built_at=None):
-    """Load every baseline with Metacello onto dev-base (full) or snapshots/current (incremental, default)."""
+    """Load every baseline with Metacello onto dev-base (full) or snapshots/current (incremental, default).
+
+    Returns the manifest written to snapshots/<date>.json; raises SnapshotTestFailure carrying the
+    unsaved manifest when tests fail."""
     built_at = built_at or datetime.now()
     projects = read_projects(layout)
     if full:
@@ -119,7 +134,10 @@ def build_snapshot(layout, full=False, built_at=None):
                 layout, image_path(build_dir), script, port=build_sis_port(), timeout=BUILD_TIMEOUT_SECONDS, save=True
             )
             script.unlink()
-            test_results = read_test_results(build_dir)
+            manifest = manifest_for(built_at, mode, base, fetched_sources, read_test_results(build_dir))
+            if tests_failed(manifest["tests"]):
+                raise SnapshotTestFailure(manifest)
             remove_iceberg_cache(build_dir)
-    write_manifest(layout, built_at, mode, base, fetched_sources, test_results)
+    write_manifest(layout, manifest)
     archive_current_snapshot(layout, built_at.date())
+    return manifest
