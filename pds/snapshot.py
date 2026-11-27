@@ -26,7 +26,7 @@ class SnapshotTestFailure(SnapshotBuildError):
 
     def __init__(self, result):
         tests = result["tests"]
-        failed = tests["failures"] + tests["errors"]
+        failed = failed_tests(tests)
         super().__init__(
             f"{len(failed)} of {tests['run']} tests failed; snapshots/current is unchanged:\n  " + "\n  ".join(failed)
         )
@@ -70,8 +70,9 @@ def read_test_results(build_dir):
     return test_results
 
 
-def tests_failed(test_results):
-    return bool(test_results["failures"] or test_results["errors"])
+def failed_tests(test_results):
+    """The single definition of what counts as a failed test, for both the raise decision and the message."""
+    return test_results["failures"] + test_results["errors"]
 
 
 def manifest_for(built_at, mode, base, fetched_sources, test_results):
@@ -98,8 +99,9 @@ def write_manifest(layout, manifest):
 
 
 def archive_current_snapshot(layout, build_date):
+    """`build_date` is the manifest's ISO `date`, so the archive and manifest names always match."""
     layout.archives_dir.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(layout.archives_dir / f"{build_date.isoformat()}.tar.gz", "w:gz") as archive:
+    with tarfile.open(layout.archives_dir / f"{build_date}.tar.gz", "w:gz") as archive:
         for path in sorted(layout.current_snapshot_dir.iterdir()):
             archive.add(path, arcname=path.name)
 
@@ -135,9 +137,9 @@ def build_snapshot(layout, full=False, built_at=None):
             )
             script.unlink()
             manifest = manifest_for(built_at, mode, base, fetched_sources, read_test_results(build_dir))
-            if tests_failed(manifest["tests"]):
+            if failed_tests(manifest["tests"]):
                 raise SnapshotTestFailure(manifest)
             remove_iceberg_cache(build_dir)
     write_manifest(layout, manifest)
-    archive_current_snapshot(layout, built_at.date())
+    archive_current_snapshot(layout, manifest["date"])
     return manifest
