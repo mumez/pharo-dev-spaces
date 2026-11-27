@@ -115,8 +115,9 @@ Otherwise use incremental. Requires `dev-base/` and a non-empty `st-projects.jso
 
 The build fetches `origin/<branch>` of each project (`develop` unless the entry sets `branch`;
 working trees untouched), loads baselines,
-runs their tests, and promotes the image only if every test passes. On success report the new
-`snapshots/<date>.json` (repositories + SHAs, test counts). On failure `snapshots/current` is
+runs their tests, and promotes the image only if every test passes. It prints the manifest JSON
+(date, mode, base, repositories + SHAs, `tests`) to stdout, also when tests fail. On success report
+the new `snapshots/<date>.json` (repositories + SHAs, test counts) from that output. On failure `snapshots/current` is
 unchanged — report the failing tests or git error from the output; don't retry blindly.
 
 Running slots keep their old image; a slot only picks up the new snapshot on `reset`.

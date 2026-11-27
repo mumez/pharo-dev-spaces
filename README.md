@@ -145,6 +145,7 @@ Both modes:
 2. Load each baseline with Metacello (`tonel://<extracted srcDir>`, with its `groups`).
 3. Run the tests in the package directories under `srcDir` that are loaded in the image.
 4. Only if every test passes: replace `snapshots/current`, write `snapshots/<date>.json` (build time, mode, base, SHA of each repository, test results), and archive the image to `archives/<date>.tar.gz`. If a test fails, `snapshots/current` is left unchanged.
+5. Print the manifest JSON to stdout — also when tests fail (with the failing tests in `tests.failures` / `tests.errors`, without saving it), so the result is visible without opening the file.
 
 Incremental builds pick up changed methods and baseline changes (new packages or dependencies). Removing or renaming packages and classes is not reflected; run `--full` for that.
 
