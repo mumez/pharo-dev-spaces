@@ -4,6 +4,7 @@ import pytest
 
 from pds import cli, config
 from pds.cli import build_parser
+from pds.snapshot import SnapshotTestFailure
 from tests.test_baseline import SAMPLE_REPOSITORY
 
 
@@ -214,3 +215,27 @@ def test_config_loads_pds_json_once(write_pds_json, monkeypatch, capsys):
     assert cli.main(["config"]) == 0
 
     assert len(loaded_files) == 1
+
+
+MANIFEST = {"date": "2026-10-13", "mode": "full", "tests": {"run": 1, "passed": 1, "failures": [], "errors": []}}
+
+
+def test_build_snapshot_prints_manifest_as_json(layout, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "build_snapshot", lambda layout, full=False: MANIFEST)
+
+    assert run_cli(layout, monkeypatch, capsys, "build-snapshot", "--full") == MANIFEST
+
+
+def test_build_snapshot_prints_manifest_before_failing_on_test_failures(layout, monkeypatch, capsys):
+    failed = {**MANIFEST, "tests": {"run": 1, "passed": 0, "failures": ["FooTest>>#testA"], "errors": []}}
+
+    def fail(layout, full=False):
+        raise SnapshotTestFailure(failed)
+
+    monkeypatch.setattr(cli, "build_snapshot", fail)
+    monkeypatch.setattr(cli.Layout, "default", classmethod(lambda cls: layout))
+
+    assert cli.main(["build-snapshot"]) == 1
+    output = capsys.readouterr()
+    assert json.loads(output.out) == failed
+    assert "1 of 1 tests failed" in output.err
