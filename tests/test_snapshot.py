@@ -7,7 +7,7 @@ import pytest
 
 from pds import snapshot
 from pds.image_dir import image_path
-from pds.snapshot import SnapshotBuildError, build_snapshot
+from pds.snapshot import SnapshotBuildError, SnapshotTestFailure, build_snapshot
 from pds.sources import FetchedSource
 from pds.st_script import FORGET_ICEBERG_CACHE_REPOSITORIES_SCRIPT
 from tests.test_image_dir import make_image_dir
@@ -104,6 +104,14 @@ def test_successful_build_writes_manifest(build_layout, monkeypatch):
     }
 
 
+def test_successful_build_returns_written_manifest(build_layout, monkeypatch):
+    monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
+
+    manifest = build_snapshot(build_layout, full=True, built_at=BUILT_AT)
+
+    assert manifest == json.loads((build_layout.snapshots_dir / "2026-10-13.json").read_text())
+
+
 def test_manifest_records_configured_branch(build_layout, monkeypatch):
     build_layout.projects_file.write_text(json.dumps([{**PROJECT, "branch": "main"}]))
     monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(PASSED))
@@ -134,6 +142,28 @@ def test_failing_tests_keep_previous_snapshot(build_layout, monkeypatch):
 
     assert (build_layout.current_snapshot_dir / "Pharo.image").read_text() == "previous"
     assert not (build_layout.snapshots_dir / "2026-10-13.json").exists()
+
+
+def test_failing_tests_raise_failure_with_unsaved_manifest(build_layout, monkeypatch):
+    failed = {"run": 3, "passed": 1, "failures": ["HistoriaTest>>#testA"], "errors": ["HistoriaTest>>#testB"]}
+    monkeypatch.setattr(snapshot, "run_pharo", fake_pharo_run(failed))
+
+    with pytest.raises(SnapshotTestFailure, match="2 of 3 tests failed") as failure:
+        build_snapshot(build_layout, full=True, built_at=BUILT_AT)
+
+    assert failure.value.result == {
+        "date": "2026-10-13",
+        "builtAt": "2026-10-13T09:30:15",
+        "mode": "full",
+        "base": "dev-base",
+        "repositories": [
+            {"repository": "/repos/Historia", "baseline": "Historia", "sha": "abc123", "branch": "develop"}
+        ],
+        "tests": failed,
+    }
+    assert isinstance(failure.value, SnapshotBuildError)
+    assert not list(build_layout.snapshots_dir.glob("*.json"))
+    assert not build_layout.archives_dir.exists() or not list(build_layout.archives_dir.iterdir())
 
 
 def make_current_snapshot(layout, manifest_date="2026-10-12"):

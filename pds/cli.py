@@ -20,7 +20,7 @@ from pds.slot import (
     start_slot,
     stop_slot,
 )
-from pds.snapshot import build_snapshot
+from pds.snapshot import SnapshotTestFailure, build_snapshot
 
 
 def build_parser():
@@ -171,7 +171,7 @@ def build_parser():
     build_snapshot_parser.add_argument(
         "--full", action="store_true", help="rebuild from dev-base through the baselines"
     )
-    build_snapshot_parser.set_defaults(handler=lambda layout, args: build_snapshot(layout, full=args.full))
+    build_snapshot_parser.set_defaults(handler=build_snapshot_from_cli)
 
     config_parser = commands.add_parser(
         "config", help="print the resolved root and ports with their sources (env / pds.json / default) as JSON"
@@ -222,6 +222,15 @@ def reset_from_cli(layout, args):
         raise
     if result is not None:
         print_json(result)
+
+
+def build_snapshot_from_cli(layout, args):
+    try:
+        manifest = build_snapshot(layout, full=args.full)
+    except SnapshotTestFailure as failure:
+        print_json(failure.result)
+        raise
+    print_json(manifest)
 
 
 def add_project(layout, args):
